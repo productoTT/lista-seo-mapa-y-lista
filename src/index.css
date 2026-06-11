@@ -1,0 +1,139 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Content container — max-width centrado con padding lateral ── */
+.seo-container {
+  max-width: 1280px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 30px;
+  padding-right: 30px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes fadeScaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+body {
+  font-family: 'Nunito', system-ui, sans-serif;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+/* Price markers — TOCTOC brand violet */
+.price-marker {
+  background: #3200C1;
+  color: white;
+  padding: 4px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(34,17,96,0.3);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'Nunito', sans-serif;
+}
+
+.price-marker:hover {
+  background: #24018A;
+  transform: scale(1.1);
+  z-index: 1000 !important;
+}
+
+.price-marker.highlighted {
+  background: #37FFDB;
+  color: #170057;
+  transform: scale(1.15);
+  z-index: 1000 !important;
+  border-color: #170057;
+}
+
+.price-marker.active {
+  background: #221160;
+  color: #37FFDB;
+  transform: scale(1.2);
+  z-index: 1001 !important;
+  border-color: #37FFDB;
+  box-shadow: 0 4px 16px rgba(34,17,96,0.4);
+}
+
+.leaflet-popup-tip-container { display: none; }
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(34,17,96,0.15);
+  font-family: 'Nunito', sans-serif;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.95); }
+}
+
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── IA loading state ── */
+@keyframes ia-progress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes ia-sparkle-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1)    rotate(0deg); }
+  33%       { opacity: 0.7; transform: scale(1.15) rotate(12deg); }
+  66%       { opacity: 0.9; transform: scale(0.92) rotate(-8deg); }
+}
+
+@keyframes ia-chip-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ia-progress-bar,
+  .ia-sparkle-icon,
+  .ia-chip { animation: none !important; }
+}
