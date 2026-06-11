@@ -32,7 +32,7 @@ function getBreadcrumb(filters: Filters): { label: string; last: boolean }[] {
   return crumbs;
 }
 
-export function SeoPageInfo({ filters, resultCount }: SeoPageInfoProps) {
+export function SeoPageInfo({ filters, resultCount: _resultCount }: SeoPageInfoProps) {
   const h1 = getH1(filters);
   const crumbs = getBreadcrumb(filters);
 

@@ -74,9 +74,6 @@ export function ResultsScreen({
     if (isMobile && viewMode === 'dividida') onViewChange('mapa');
   }, [isMobile]);
 
-  const selectedProperty = selectedId
-    ? properties.find(p => p.id === selectedId) ?? null
-    : null;
 
   const handleCardSelect = (id: string) => {
     const idx = properties.findIndex(p => p.id === id);

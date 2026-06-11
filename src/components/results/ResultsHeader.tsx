@@ -553,7 +553,7 @@ function CommuneInput({ value, onChange }: { value: string; onChange: (v: string
 
 export function ResultsHeader({
   viewMode, onViewChange, filters, onFiltersChange,
-  query, resultCount, onOpenFilters,
+  query, resultCount: _resultCount, onOpenFilters,
   savedSearch, onSaveSearch, onSearch,
   advancedFilters, onAdvancedFiltersChange,
 }: ResultsHeaderProps) {
