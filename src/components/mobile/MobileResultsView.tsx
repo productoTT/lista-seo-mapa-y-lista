@@ -4,7 +4,8 @@ import { DEFAULT_FILTERS, DEFAULT_ADVANCED_FILTERS } from '../../types/property'
 import { MapView } from '../MapView/MapView';
 import { MobileHeader, MOBILE_HEADER_HEIGHT } from './MobileHeader';
 import { MobileMapCard } from './MobileMapCard';
-import { MobileBottomSheet, SheetState, SHEET_PEEK_HEIGHT } from './MobileBottomSheet';
+import type { SheetState } from './MobileBottomSheet';
+import { MobileBottomSheet, SHEET_PEEK_HEIGHT } from './MobileBottomSheet';
 import { FiltersDrawer } from '../modals/FiltersDrawer';
 
 // Group threshold: ~200m radius
