@@ -137,3 +137,35 @@ body {
   .ia-sparkle-icon,
   .ia-chip { animation: none !important; }
 }
+
+/* ── Mobile results view ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Prevent layout jumps on mobile when browser chrome shows/hides */
+@supports (height: 100dvh) {
+  .mobile-full {
+    height: 100dvh;
+  }
+}
+
+/* Touch targets */
+@media (max-width: 767px) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Leaflet zoom control repositions itself above bottom sheet */
+  .leaflet-control-zoom {
+    margin-bottom: 96px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bottom-sheet {
+    transition: none !important;
+  }
+}
