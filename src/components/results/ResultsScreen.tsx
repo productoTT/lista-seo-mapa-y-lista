@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Filters, AdvancedFilters, ViewMode, SearchInterpretation, SortOption } from '../../types/property';
 import type { Property } from '../../types/property';
 import { DEFAULT_FILTERS, DEFAULT_ADVANCED_FILTERS } from '../../types/property';
+import { MobileResultsView } from '../mobile/MobileResultsView';
 import { ToctocFullHeader } from '../seo/ToctocFullHeader';
 import { SeoLinksBlock } from '../seo/SeoLinksBlock';
 import { ToctocFooter } from '../seo/ToctocFooter';
@@ -81,6 +82,26 @@ export function ResultsScreen({
     setSelectedId(id);
     onViewFullProperty(id);
   };
+
+  // ── Mobile: render experiencia de mapa + bottom sheet ──
+  if (isMobile) {
+    return (
+      <MobileResultsView
+        properties={properties}
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        query={query}
+        savedProperties={savedProperties}
+        onSaveProperty={onSaveProperty}
+        onGoHome={onGoHome}
+        onViewFullProperty={onViewFullProperty}
+        sort={sort}
+        onSortChange={onSortChange}
+        advancedFilters={advancedFilters}
+        onAdvancedFiltersChange={onAdvancedFiltersChange}
+      />
+    );
+  }
 
   // Ninguna vista usa layout fijo — scroll natural en todas
   const isFixedLayout = false;
