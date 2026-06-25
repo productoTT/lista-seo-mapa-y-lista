@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import type { Filters, AdvancedFilters, Property, SortOption } from '../../types/property';
+import type { Filters, AdvancedFilters, Property, SortOption, SearchInterpretation } from '../../types/property';
 import { DEFAULT_FILTERS, DEFAULT_ADVANCED_FILTERS } from '../../types/property';
 import { MapView } from '../MapView/MapView';
 import { MobileHeader, MOBILE_HEADER_HEIGHT } from './MobileHeader';
 import { MobileMapCard } from './MobileMapCard';
 import type { SheetState } from './MobileBottomSheet';
 import { MobileBottomSheet, SHEET_PEEK_HEIGHT } from './MobileBottomSheet';
+import { MobileSearchModal } from './MobileSearchModal';
+import type { SearchTab } from './MobileSearchModal';
 import { FiltersDrawer } from '../modals/FiltersDrawer';
 
 // Group threshold: ~200m radius
@@ -32,24 +34,32 @@ interface MobileResultsViewProps {
   onSortChange: (s: SortOption) => void;
   advancedFilters: AdvancedFilters;
   onAdvancedFiltersChange: (f: Partial<AdvancedFilters>) => void;
+  onSearch: (q: string) => void;
+  interpretation: SearchInterpretation | null;
 }
 
 export function MobileResultsView({
   properties, filters, onFiltersChange, query,
   savedProperties, onSaveProperty, onGoHome, onViewFullProperty,
   sort, onSortChange, advancedFilters, onAdvancedFiltersChange,
+  onSearch, interpretation,
 }: MobileResultsViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [sheetState, setSheetState] = useState<SheetState>('collapsed');
   const [showFilters, setShowFilters] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTab, setSearchTab] = useState<SearchTab>('ai');
   const [cardProperties, setCardProperties] = useState<Property[]>([]);
 
   // Intercept back button
   useEffect(() => {
     window.history.pushState({ mobile: true }, '');
     const handler = () => {
-      if (selectedId) {
+      if (showSearch) {
+        setShowSearch(false);
+        window.history.pushState({ mobile: true }, '');
+      } else if (selectedId) {
         setSelectedId(null);
         setCardProperties([]);
         window.history.pushState({ mobile: true }, '');
@@ -60,7 +70,7 @@ export function MobileResultsView({
     };
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
-  }, [selectedId, sheetState]);
+  }, [selectedId, sheetState, showSearch]);
 
   const closeCard = () => {
     setSelectedId(null);
@@ -77,16 +87,13 @@ export function MobileResultsView({
     const nearby = getPropertiesAtLocation(properties, prop.lat, prop.lng);
     setSelectedId(id);
     setCardProperties(nearby.length > 0 ? nearby : [prop]);
-    // Bring map into view when selecting a pin
     if (sheetState === 'expanded') setSheetState('half');
   };
 
-  // Tapping the map background closes the card
   const handleMapAreaClick = () => {
     if (selectedId) closeCard();
   };
 
-  // Card is positioned above the collapsed peek
   const cardBottom = SHEET_PEEK_HEIGHT + 12;
 
   return (
@@ -96,21 +103,21 @@ export function MobileResultsView({
         inset: 0,
         overflow: 'hidden',
         background: '#1a1a2e',
-        // Ensure iOS safe area is respected
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {/* ── Header ────────────────────────────────────── */}
+      {/* ── Header ────────────────────────────────────────────── */}
       <MobileHeader
         filters={filters}
         query={query}
         resultCount={properties.length}
         onGoBack={onGoHome}
         onOpenFilters={() => setShowFilters(true)}
+        onOpenSearch={() => setShowSearch(true)}
       />
 
-      {/* ── Map — fills viewport below header ─────────── */}
+      {/* ── Map — fills viewport below header ─────────────────── */}
       <div
         style={{
           position: 'fixed',
@@ -129,7 +136,7 @@ export function MobileResultsView({
         />
       </div>
 
-      {/* ── Contextual card (pin selected) ────────────── */}
+      {/* ── Contextual card (pin selected) ────────────────────── */}
       {selectedId && cardProperties.length > 0 && (
         <div
           style={{
@@ -151,7 +158,7 @@ export function MobileResultsView({
         </div>
       )}
 
-      {/* ── Bottom sheet ──────────────────────────────── */}
+      {/* ── Bottom sheet ──────────────────────────────────────── */}
       <MobileBottomSheet
         properties={properties}
         savedProperties={savedProperties}
@@ -161,9 +168,15 @@ export function MobileResultsView({
         onSave={onSaveProperty}
         sheetState={sheetState}
         onSheetStateChange={setSheetState}
+        filters={filters}
+        advancedFilters={advancedFilters}
+        onFiltersChange={onFiltersChange}
+        onAdvancedFiltersChange={onAdvancedFiltersChange}
+        query={query}
+        interpretation={interpretation}
       />
 
-      {/* ── Filters drawer ────────────────────────────── */}
+      {/* ── Filters drawer ────────────────────────────────────── */}
       <FiltersDrawer
         open={showFilters}
         onClose={() => setShowFilters(false)}
@@ -176,6 +189,21 @@ export function MobileResultsView({
           onAdvancedFiltersChange({ ...DEFAULT_ADVANCED_FILTERS });
         }}
         onApply={() => setShowFilters(false)}
+      />
+
+      {/* ── Search modal — full viewport ──────────────────────── */}
+      <MobileSearchModal
+        open={showSearch}
+        tab={searchTab}
+        onTabChange={setSearchTab}
+        onClose={() => setShowSearch(false)}
+        filters={filters}
+        advancedFilters={advancedFilters}
+        query={query}
+        interpretation={interpretation}
+        onSearch={onSearch}
+        onFiltersChange={onFiltersChange}
+        onAdvancedFiltersChange={onAdvancedFiltersChange}
       />
     </div>
   );

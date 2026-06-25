@@ -1,4 +1,4 @@
-import { Calculator, Home, ArrowRight } from 'lucide-react';
+import { Calculator, Home, ArrowRight, Users } from 'lucide-react';
 
 const INDIGO = '#3200C1';
 const INDIGO_DARK = '#24018A';
@@ -35,6 +35,19 @@ const BANNERS = [
     iconBg: 'rgba(50,0,193,0.10)',
     iconColor: INDIGO,
     light: true,
+  },
+  {
+    bg: `linear-gradient(145deg, #221160 0%, #3200C1 100%)`,
+    eyebrow: 'Agentes TOCTOC',
+    title: 'Encuentra a tu agente ideal',
+    body: '+500 agentes verificados listos para ayudarte en tu compra.',
+    cta: 'Ver agentes',
+    ctaBg: '#37FFDB',
+    ctaColor: '#221160',
+    Icon: Users,
+    iconBg: 'rgba(55,255,219,0.15)',
+    iconColor: '#37FFDB',
+    light: false,
   },
 ];
 

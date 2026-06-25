@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Map, ChevronUp } from 'lucide-react';
-import type { Property, SortOption } from '../../types/property';
+import type { Property, SortOption, Filters, AdvancedFilters, SearchInterpretation } from '../../types/property';
+import { DEFAULT_ADVANCED_FILTERS } from '../../types/property';
 import { PropertyResultCard } from '../results/PropertyResultCard';
 import { ContextualBanner, insertBanners } from '../results/ContextualBanner';
 import { Paginator } from '../seo/Paginator';
 import { MOBILE_HEADER_HEIGHT } from './MobileHeader';
+import { MobileFilterPills } from './MobileFilterPills';
+import { MobileBannerSlider } from './MobileBannerSlider';
 
 export type SheetState = 'collapsed' | 'half' | 'expanded';
 export const SHEET_PEEK_HEIGHT = 80;
@@ -29,11 +32,44 @@ interface MobileBottomSheetProps {
   onSave: (id: string) => void;
   sheetState: SheetState;
   onSheetStateChange: (s: SheetState) => void;
+  filters: Filters;
+  advancedFilters: AdvancedFilters;
+  onFiltersChange: (f: Partial<Filters>) => void;
+  onAdvancedFiltersChange: (f: Partial<AdvancedFilters>) => void;
+  query: string;
+  interpretation: SearchInterpretation | null;
+}
+
+function buildResultTitle(filters: Filters, interpretation: SearchInterpretation | null, _query: string): string {
+  let type = '';
+  let operation = '';
+  let zone = '';
+
+  if (interpretation) {
+    type = interpretation.propertyType || '';
+    operation = interpretation.operation || '';
+    zone = interpretation.zone || '';
+  } else {
+    if (filters.propertyType) {
+      const map: Record<string, string> = { departamento: 'Departamentos', casa: 'Casas', oficina: 'Oficinas' };
+      type = map[filters.propertyType] || '';
+    }
+    operation = filters.operation === 'arriendo' ? 'Arriendo' : 'Venta';
+    zone = filters.zone;
+  }
+
+  const parts: string[] = [];
+  parts.push(type || 'Propiedades');
+  parts.push(`en ${operation || 'Venta'}`);
+  if (zone) parts.push(`en ${zone}`);
+  return parts.join(' ');
 }
 
 export function MobileBottomSheet({
   properties, savedProperties, sort, onSortChange, onSelect, onSave,
   sheetState, onSheetStateChange,
+  filters, advancedFilters, onFiltersChange, onAdvancedFiltersChange,
+  query: _query, interpretation,
 }: MobileBottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -301,25 +337,33 @@ export function MobileBottomSheet({
             </button>
           )}
 
-          {/* Half / expanded: sort bar */}
+          {/* Half / expanded: count + sort + filter pills */}
           {sheetState !== 'collapsed' && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#343A40', margin: 0 }}>
-                {properties.length.toLocaleString('es-CL')} propiedades
-              </p>
-              <select
-                value={sort}
-                onChange={e => onSortChange(e.target.value as SortOption)}
-                style={{
-                  fontSize: 11, fontWeight: 600,
-                  border: '1px solid #E5E5E5', borderRadius: 6,
-                  padding: '4px 8px', outline: 'none', cursor: 'pointer',
-                  color: '#343A40', background: '#fff', fontFamily: 'inherit',
-                }}
-              >
-                {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#343A40', margin: 0 }}>
+                  {properties.length.toLocaleString('es-CL')} propiedades
+                </p>
+                <select
+                  value={sort}
+                  onChange={e => onSortChange(e.target.value as SortOption)}
+                  style={{
+                    fontSize: 11, fontWeight: 600,
+                    border: '1px solid #E5E5E5', borderRadius: 6,
+                    padding: '4px 8px', outline: 'none', cursor: 'pointer',
+                    color: '#343A40', background: '#fff', fontFamily: 'inherit',
+                  }}
+                >
+                  {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <MobileFilterPills
+                filters={filters}
+                advancedFilters={advancedFilters || DEFAULT_ADVANCED_FILTERS}
+                onFiltersChange={onFiltersChange}
+                onAdvancedFiltersChange={onAdvancedFiltersChange}
+              />
+            </>
           )}
         </div>
 
@@ -344,6 +388,19 @@ export function MobileBottomSheet({
           }}
         >
           <div style={{ padding: '12px 12px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Result title */}
+            {sheetState !== 'collapsed' && (
+              <h2 style={{
+                fontSize: 16, fontWeight: 800, color: '#343A40',
+                margin: 0, lineHeight: 1.3,
+              }}>
+                {buildResultTitle(filters, interpretation, _query)}
+              </h2>
+            )}
+
+            {/* Banner slider — appears before cards */}
+            {sheetState !== 'collapsed' && <MobileBannerSlider />}
+
             {items.map((item, i) => {
               if ('__banner' in item) {
                 return <ContextualBanner key={`banner-${i}`} variant={item.variant} />;
