@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Search, ChevronDown } from 'lucide-react';
-import type { Filters, AdvancedFilters, SearchInterpretation, OperationType, PropertyType } from '../../types/property';
+import type { Filters, AdvancedFilters, OperationType, PropertyType } from '../../types/property';
 import { DEFAULT_FILTERS } from '../../types/property';
 import { zones_list } from '../../data/mockProperties';
+import {
+  STEP_TIMESTAMPS,
+  SEARCH_TOTAL_MS,
+  extractChipsSEO,
+} from '../ia/IASearchShared';
+import { IALoadingCard } from '../ia/IALoadingCard';
 
 const INDIGO = '#3200C1';
 const INDIGO_50 = '#EAF2FC';
@@ -16,50 +22,6 @@ const AI_EXAMPLES = [
   'Depto cerca de metro en Providencia',
 ];
 
-const LOADING_STEPS = [
-  'Interpretando búsqueda…',
-  'Detectando filtros relevantes…',
-  'Buscando propiedades…',
-  'Ordenando resultados…',
-];
-
-function parseAIQuery(q: string): { chips: string[]; interpretation: SearchInterpretation } {
-  const lower = q.toLowerCase();
-  const chips: string[] = [];
-  const interp: SearchInterpretation = { query: q };
-
-  if (lower.includes('arriendo')) { chips.push('Arrendar'); interp.operation = 'Arrendar'; }
-  else { chips.push('Comprar'); interp.operation = 'Comprar'; }
-
-  if (lower.includes('depto') || lower.includes('departamento') || lower.includes('dpto')) {
-    chips.push('Departamento'); interp.propertyType = 'Departamento';
-  } else if (lower.includes('casa')) {
-    chips.push('Casa'); interp.propertyType = 'Casa';
-  }
-
-  const zoneMap: Record<string, string> = {
-    'ñuñoa': 'Ñuñoa', 'providencia': 'Providencia', 'las condes': 'Las Condes',
-    'vitacura': 'Vitacura', 'la reina': 'La Reina', 'la florida': 'La Florida',
-    'santiago': 'Santiago', 'peñalolén': 'Peñalolén',
-  };
-  for (const [k, v] of Object.entries(zoneMap)) {
-    if (lower.includes(k)) { chips.push(v); interp.zone = v; break; }
-  }
-
-  const beds = lower.match(/(\d)\s*dorm/);
-  if (beds) { chips.push(`${beds[1]} dorm.`); interp.bedrooms = `${beds[1]} dormitorios`; }
-
-  const uf = lower.match(/(\d[\d.]*)\s*uf/i);
-  if (uf) {
-    const n = parseInt(uf[1].replace(/\./g, ''));
-    chips.push(`Hasta UF ${n.toLocaleString('es-CL')}`);
-    interp.maxPrice = `Hasta UF ${n.toLocaleString('es-CL')}`;
-  }
-
-  if (lower.includes('metro')) chips.push('Cerca de metro');
-
-  return { chips, interpretation: interp };
-}
 
 interface MobileSearchModalProps {
   open: boolean;
@@ -69,7 +31,7 @@ interface MobileSearchModalProps {
   filters: Filters;
   advancedFilters: AdvancedFilters;
   query: string;
-  interpretation: SearchInterpretation | null;  // eslint-disable-line @typescript-eslint/no-unused-vars
+  interpretation: null | unknown;
   onSearch: (q: string) => void;
   onFiltersChange: (f: Partial<Filters>) => void;
   onAdvancedFiltersChange: (f: Partial<AdvancedFilters>) => void;
@@ -77,71 +39,99 @@ interface MobileSearchModalProps {
 
 export function MobileSearchModal({
   open, tab, onTabChange, onClose,
-  filters, advancedFilters, query, interpretation: _interpretation,
+  filters, advancedFilters, query,
   onSearch, onFiltersChange, onAdvancedFiltersChange,
 }: MobileSearchModalProps) {
   // AI tab state
   const [aiQuery, setAiQuery] = useState(query);
   const [aiChips, setAiChips] = useState<string[]>([]);
+
+  // Loading state — shared with desktop logic
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [chipsVisible, setChipsVisible] = useState(false);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Classic tab local state (only applied on Buscar)
   const [localFilters, setLocalFilters] = useState<Filters>({ ...filters });
   const [localAdvanced, setLocalAdvanced] = useState<AdvancedFilters>({ ...advancedFilters });
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Sync when modal opens
+  // Sync when modal opens; always reset loading state so re-opening shows form
   useEffect(() => {
     if (open) {
       setAiQuery(query);
       setLocalFilters({ ...filters });
       setLocalAdvanced({ ...advancedFilters });
-      if (query) {
-        const { chips } = parseAIQuery(query);
-        setAiChips(chips);
-      } else {
-        setAiChips([]);
-      }
+      setAiChips(query ? extractChipsSEO(query) : []);
+      cancelTimers();
       setLoading(false);
       setLoadingStep(0);
+      setChipsVisible(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Back button interception
+  // Cleanup on unmount
+  useEffect(() => () => cancelTimers(), []);
+
+  // Back button interception — closes modal (or cancels loading) before navigating
   useEffect(() => {
     if (!open) return;
     window.history.pushState({ searchModal: true }, '');
-    const handler = () => { onClose(); };
+    const handler = () => {
+      cancelTimers();
+      setLoading(false);
+      onClose();
+    };
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
   }, [open, onClose]);
 
+  function cancelTimers() {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  }
+
   const handleExampleClick = (ex: string) => {
     setAiQuery(ex);
-    const { chips } = parseAIQuery(ex);
-    setAiChips(chips);
+    setAiChips(extractChipsSEO(ex));
   };
 
   const handleAISearch = () => {
-    if (!aiQuery.trim()) return;
+    const text = aiQuery.trim();
+    if (!text || loading) return;
+
+    const chips = extractChipsSEO(text);
+    setAiChips(chips);
     setLoading(true);
     setLoadingStep(0);
+    setChipsVisible(false);
+    cancelTimers();
 
-    const stepInterval = setInterval(() => {
-      setLoadingStep(s => {
-        if (s >= LOADING_STEPS.length - 1) { clearInterval(stepInterval); return s; }
-        return s + 1;
-      });
-    }, 340);
-
-    setTimeout(() => {
-      clearInterval(stepInterval);
+    // Mirror exact desktop timing from STEP_TIMESTAMPS
+    const t1 = setTimeout(() => { setLoadingStep(1); setChipsVisible(true); }, STEP_TIMESTAMPS[1]);
+    const t2 = setTimeout(() => setLoadingStep(2), STEP_TIMESTAMPS[2]);
+    const t3 = setTimeout(() => setLoadingStep(3), STEP_TIMESTAMPS[3]);
+    const t4 = setTimeout(() => setLoadingStep(4), STEP_TIMESTAMPS[4]);
+    const t5 = setTimeout(() => {
+      cancelTimers();
       setLoading(false);
-      onSearch(aiQuery.trim());
+      setLoadingStep(0);
+      setChipsVisible(false);
+      onSearch(text);
       onClose();
-    }, 1500);
+    }, SEARCH_TOTAL_MS);
+
+    timersRef.current = [t1, t2, t3, t4, t5];
+  };
+
+  const handleClose = () => {
+    // Cancel in-flight loading without applying partial search
+    cancelTimers();
+    setLoading(false);
+    setLoadingStep(0);
+    setChipsVisible(false);
+    onClose();
   };
 
   const handleClassicSearch = () => {
@@ -169,7 +159,7 @@ export function MobileSearchModal({
       aria-modal="true"
       aria-label="Refinar búsqueda"
     >
-      {/* Header */}
+      {/* Header — always visible, even during loading */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -182,7 +172,7 @@ export function MobileSearchModal({
           Refinar búsqueda
         </h2>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           aria-label="Cerrar buscador"
           style={{
             width: 36, height: 36,
@@ -195,19 +185,15 @@ export function MobileSearchModal({
         </button>
       </div>
 
-      {/* Tabs */}
-      <div style={{
-        display: 'flex',
-        borderBottom: '1px solid #E5E5E5',
-        flexShrink: 0,
-      }}>
+      {/* Tabs — always visible, even during loading */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #E5E5E5', flexShrink: 0 }}>
         {[
           { id: 'classic' as SearchTab, label: 'Búsqueda clásica' },
           { id: 'ai' as SearchTab, label: 'Búsqueda IA', badge: 'Beta' },
         ].map(t => (
           <button
             key={t.id}
-            onClick={() => onTabChange(t.id)}
+            onClick={() => !loading && onTabChange(t.id)}
             role="tab"
             aria-selected={tab === t.id}
             style={{
@@ -223,8 +209,9 @@ export function MobileSearchModal({
               borderBottom: `2px solid ${tab === t.id ? INDIGO : 'transparent'}`,
               background: 'none',
               color: tab === t.id ? INDIGO : '#666',
-              cursor: 'pointer',
+              cursor: loading ? 'default' : 'pointer',
               fontFamily: 'inherit',
+              opacity: loading && t.id !== 'ai' ? 0.5 : 1,
               transition: 'color 0.15s',
             }}
           >
@@ -246,17 +233,23 @@ export function MobileSearchModal({
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain' }}>
         {tab === 'ai' ? (
-          <AITab
-            aiQuery={aiQuery}
-            setAiQuery={setAiQuery}
-            aiChips={aiChips}
-            setAiChips={setAiChips}
-            loading={loading}
-            loadingStep={loadingStep}
-            onExampleClick={handleExampleClick}
-            onSearch={handleAISearch}
-            textareaRef={textareaRef}
-          />
+          loading ? (
+            /* ── Loader card — replaces form content during processing ── */
+            <IALoadingCard
+              query={aiQuery}
+              step={loadingStep}
+              chips={aiChips}
+              chipsVisible={chipsVisible}
+            />
+          ) : (
+            <AITab
+              aiQuery={aiQuery}
+              setAiQuery={val => { setAiQuery(val); setAiChips(val.trim() ? extractChipsSEO(val) : []); }}
+              aiChips={aiChips}
+              onExampleClick={handleExampleClick}
+              onSearch={handleAISearch}
+            />
+          )
         ) : (
           <ClassicTab
             localFilters={localFilters}
@@ -271,57 +264,17 @@ export function MobileSearchModal({
   );
 }
 
-// ── AI tab ────────────────────────────────────────────────────
+// ── AI tab (form state) ────────────────────────────────────────
 
 interface AITabProps {
   aiQuery: string;
   setAiQuery: (q: string) => void;
   aiChips: string[];
-  setAiChips: (c: string[]) => void;
-  loading: boolean;
-  loadingStep: number;
   onExampleClick: (ex: string) => void;
   onSearch: () => void;
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
-function AITab({ aiQuery, setAiQuery, aiChips, setAiChips, loading, loadingStep, onExampleClick, onSearch, textareaRef }: AITabProps) {
-  const handleChange = (val: string) => {
-    setAiQuery(val);
-    if (val.trim()) {
-      const { chips } = parseAIQuery(val);
-      setAiChips(chips);
-    } else {
-      setAiChips([]);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: '60px 24px', gap: 16,
-      }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: 16,
-          background: INDIGO_50, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          animation: 'pulse 1.2s ease-in-out infinite',
-        }}>
-          <Sparkles size={26} style={{ color: INDIGO }} />
-        </div>
-        <p style={{ fontSize: 15, fontWeight: 800, color: FG1, margin: 0, textAlign: 'center' }}>
-          Entendiendo tu búsqueda
-        </p>
-        <p style={{ fontSize: 13, color: '#666', margin: 0, textAlign: 'center', fontStyle: 'italic' }}>
-          "{aiQuery}"
-        </p>
-        <p style={{ fontSize: 12, color: INDIGO, margin: 0, fontWeight: 600 }}>
-          {LOADING_STEPS[loadingStep]}
-        </p>
-      </div>
-    );
-  }
-
+function AITab({ aiQuery, setAiQuery, aiChips, onExampleClick, onSearch }: AITabProps) {
   return (
     <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
@@ -329,9 +282,8 @@ function AITab({ aiQuery, setAiQuery, aiChips, setAiChips, loading, loadingStep,
           Describe en lenguaje natural lo que buscas:
         </p>
         <textarea
-          ref={textareaRef}
           value={aiQuery}
-          onChange={e => handleChange(e.target.value)}
+          onChange={e => setAiQuery(e.target.value)}
           placeholder='Ej: "Depto cerca de metro en Providencia"'
           rows={3}
           style={{
@@ -351,24 +303,17 @@ function AITab({ aiQuery, setAiQuery, aiChips, setAiChips, loading, loadingStep,
         />
       </div>
 
-      {/* Examples */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {AI_EXAMPLES.map(ex => (
           <button
             key={ex}
             onClick={() => onExampleClick(ex)}
             style={{
-              textAlign: 'left',
-              fontSize: 13,
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: '1px solid #E5E5E5',
-              background: '#F9F9F9',
-              color: FG1,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              minHeight: 44,
-              lineHeight: 1.4,
+              textAlign: 'left', fontSize: 13,
+              padding: '10px 14px', borderRadius: 10,
+              border: '1px solid #E5E5E5', background: '#F9F9F9',
+              color: FG1, cursor: 'pointer', fontFamily: 'inherit',
+              minHeight: 44, lineHeight: 1.4,
             }}
           >
             {ex}
@@ -376,7 +321,7 @@ function AITab({ aiQuery, setAiQuery, aiChips, setAiChips, loading, loadingStep,
         ))}
       </div>
 
-      {/* Interpreted chips */}
+      {/* Preview chips from current input */}
       {aiChips.length > 0 && (
         <div>
           <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#666', margin: '0 0 8px' }}>
@@ -396,33 +341,21 @@ function AITab({ aiQuery, setAiQuery, aiChips, setAiChips, loading, loadingStep,
         </div>
       )}
 
-      {/* CTA */}
       <button
         onClick={onSearch}
         disabled={!aiQuery.trim()}
         style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          padding: '14px',
-          borderRadius: 12,
-          border: 'none',
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          padding: '14px', borderRadius: 12, border: 'none',
           background: aiQuery.trim() ? INDIGO : '#C5C5C5',
-          color: '#fff',
-          fontSize: 15,
-          fontWeight: 800,
+          color: '#fff', fontSize: 15, fontWeight: 800,
           cursor: aiQuery.trim() ? 'pointer' : 'not-allowed',
-          fontFamily: 'inherit',
-          transition: 'background 0.15s',
-          minHeight: 52,
+          fontFamily: 'inherit', transition: 'background 0.15s', minHeight: 52,
         }}
       >
         <Search size={16} />
         Buscar
       </button>
-      {/* Keyboard spacer */}
       <div style={{ height: 120 }} />
     </div>
   );
@@ -457,14 +390,10 @@ const BEDROOMS_OPTIONS: { value: number | null; label: string }[] = [
 const PRICE_OPTIONS = [0, 1000, 2000, 3000, 5000, 8000, 10000, 15000, 20000, 25000];
 
 function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{ fontSize: 12, fontWeight: 700, color: FG1, margin: '0 0 8px' }}>{children}</p>
-  );
+  return <p style={{ fontSize: 12, fontWeight: 700, color: FG1, margin: '0 0 8px' }}>{children}</p>;
 }
 
-function ChipRow<T>({
-  options, current, onSelect,
-}: {
+function ChipRow<T>({ options, current, onSelect }: {
   options: { value: T; label: string }[];
   current: T;
   onSelect: (v: T) => void;
@@ -476,17 +405,13 @@ function ChipRow<T>({
           key={String(o.value)}
           onClick={() => onSelect(o.value)}
           style={{
-            padding: '7px 14px',
-            borderRadius: 20,
+            padding: '7px 14px', borderRadius: 20,
             border: `1.5px solid ${current === o.value ? INDIGO : '#E5E5E5'}`,
             background: current === o.value ? INDIGO_50 : '#fff',
             color: current === o.value ? INDIGO : '#555',
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            minHeight: 36,
-            transition: 'all 0.12s',
+            fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            minHeight: 36, transition: 'all 0.12s',
           }}
         >
           {o.label}
@@ -507,7 +432,6 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
 
   return (
     <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Operación */}
       <div>
         <Label>Operación</Label>
         <ChipRow<OperationType | null>
@@ -521,7 +445,6 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
         />
       </div>
 
-      {/* Tipo de propiedad */}
       <div>
         <Label>Tipo de propiedad</Label>
         <ChipRow<PropertyType | null>
@@ -531,7 +454,6 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
         />
       </div>
 
-      {/* Ubicación */}
       <div>
         <Label>Ubicación / Comuna</Label>
         <div style={{ position: 'relative' }}>
@@ -539,18 +461,11 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
             value={localFilters.zone}
             onChange={e => setF({ zone: e.target.value })}
             style={{
-              width: '100%',
-              padding: '11px 36px 11px 14px',
-              borderRadius: 10,
-              border: '1.5px solid #E5E5E5',
-              background: '#fff',
+              width: '100%', padding: '11px 36px 11px 14px', borderRadius: 10,
+              border: '1.5px solid #E5E5E5', background: '#fff',
               color: localFilters.zone ? FG1 : '#999',
-              fontSize: 14,
-              fontFamily: 'Nunito, sans-serif',
-              outline: 'none',
-              appearance: 'none',
-              cursor: 'pointer',
-              minHeight: 44,
+              fontSize: 14, fontFamily: 'Nunito, sans-serif',
+              outline: 'none', appearance: 'none', cursor: 'pointer', minHeight: 44,
             }}
           >
             <option value="">Todas las comunas</option>
@@ -560,7 +475,6 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
         </div>
       </div>
 
-      {/* Dormitorios */}
       <div>
         <Label>Dormitorios</Label>
         <ChipRow<number | null>
@@ -570,7 +484,6 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
         />
       </div>
 
-      {/* Precio */}
       <div>
         <Label>Precio en UF</Label>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -579,11 +492,10 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
               value={localFilters.priceMinUF}
               onChange={e => setF({ priceMinUF: Number(e.target.value) })}
               style={{
-                width: '100%', padding: '11px 28px 11px 14px',
-                borderRadius: 10, border: '1.5px solid #E5E5E5',
-                background: '#fff', color: FG1, fontSize: 13,
-                fontFamily: 'Nunito, sans-serif', outline: 'none',
-                appearance: 'none', cursor: 'pointer', minHeight: 44,
+                width: '100%', padding: '11px 28px 11px 14px', borderRadius: 10,
+                border: '1.5px solid #E5E5E5', background: '#fff', color: FG1,
+                fontSize: 13, fontFamily: 'Nunito, sans-serif',
+                outline: 'none', appearance: 'none', cursor: 'pointer', minHeight: 44,
               }}
             >
               {PRICE_OPTIONS.map(v => <option key={v} value={v}>{v === 0 ? 'Sin mínimo' : `UF ${v.toLocaleString('es-CL')}`}</option>)}
@@ -595,11 +507,10 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
               value={localFilters.priceMaxUF}
               onChange={e => setF({ priceMaxUF: Number(e.target.value) })}
               style={{
-                width: '100%', padding: '11px 28px 11px 14px',
-                borderRadius: 10, border: '1.5px solid #E5E5E5',
-                background: '#fff', color: FG1, fontSize: 13,
-                fontFamily: 'Nunito, sans-serif', outline: 'none',
-                appearance: 'none', cursor: 'pointer', minHeight: 44,
+                width: '100%', padding: '11px 28px 11px 14px', borderRadius: 10,
+                border: '1.5px solid #E5E5E5', background: '#fff', color: FG1,
+                fontSize: 13, fontFamily: 'Nunito, sans-serif',
+                outline: 'none', appearance: 'none', cursor: 'pointer', minHeight: 44,
               }}
             >
               {PRICE_OPTIONS.slice(1).concat([DEFAULT_FILTERS.priceMaxUF]).map(v => (
@@ -611,7 +522,6 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
         </div>
       </div>
 
-      {/* Estado */}
       <div>
         <Label>Estado</Label>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -620,8 +530,7 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
               key={s}
               onClick={() => toggleStatus(s)}
               style={{
-                padding: '7px 14px',
-                borderRadius: 20,
+                padding: '7px 14px', borderRadius: 20,
                 border: `1.5px solid ${localAdvanced.status.includes(s) ? INDIGO : '#E5E5E5'}`,
                 background: localAdvanced.status.includes(s) ? INDIGO_50 : '#fff',
                 color: localAdvanced.status.includes(s) ? INDIGO : '#555',
@@ -636,31 +545,18 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
         </div>
       </div>
 
-      {/* CTA */}
       <button
         onClick={onSearch}
         style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          padding: '14px',
-          borderRadius: 12,
-          border: 'none',
-          background: INDIGO,
-          color: '#fff',
-          fontSize: 15,
-          fontWeight: 800,
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-          minHeight: 52,
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          padding: '14px', borderRadius: 12, border: 'none',
+          background: INDIGO, color: '#fff', fontSize: 15, fontWeight: 800,
+          cursor: 'pointer', fontFamily: 'inherit', minHeight: 52,
         }}
       >
         <Search size={16} />
         Buscar
       </button>
-      {/* Keyboard spacer */}
       <div style={{ height: 120 }} />
     </div>
   );

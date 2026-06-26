@@ -14,6 +14,8 @@ const FG1 = '#343A40';
 const FG3 = '#666666';
 const DIVIDER = '#E5E5E5';
 
+import { LOADING_STEPS as LOADING_STEPS_SEO, STEP_TIMESTAMPS, SEARCH_TOTAL_MS, extractChipsSEO } from '../ia/IASearchShared';
+
 const IA_SUGGESTIONS = [
   'Deptos en Providencia cerca de metro',
   'Departamento 2 dormitorios hasta 5.000 UF',
@@ -21,39 +23,6 @@ const IA_SUGGESTIONS = [
   'Casas en La Reina cerca de colegios',
   'Deptos nuevos en Ñuñoa',
 ];
-
-const LOADING_STEPS_SEO = [
-  'Interpretando búsqueda…',
-  'Detectando filtros relevantes…',
-  'Buscando propiedades compatibles…',
-  'Ordenando resultados…',
-  'Actualizando resultados…',
-];
-
-const ZONES_MAP_SEO: Record<string, string> = {
-  'ñuñoa': 'Ñuñoa', 'providencia': 'Providencia', 'las condes': 'Las Condes',
-  'vitacura': 'Vitacura', 'santiago centro': 'Santiago Centro', 'santiago': 'Santiago',
-  'miraflores': 'Miraflores', 'la florida': 'La Florida', 'peñalolén': 'Peñalolén', 'la reina': 'La Reina',
-};
-
-function extractChipsSEO(q: string): string[] {
-  const lower = q.toLowerCase();
-  const chips: string[] = [];
-  if (lower.includes('depto') || lower.includes('departamento') || lower.includes('dpto')) chips.push('Departamento');
-  else if (lower.includes('casa')) chips.push('Casa');
-  else if (lower.includes('oficina')) chips.push('Oficina');
-  for (const z of Object.keys(ZONES_MAP_SEO)) {
-    if (lower.includes(z)) { chips.push(ZONES_MAP_SEO[z]); break; }
-  }
-  const beds = lower.match(/(\d)\s*dorm/);
-  if (beds) chips.push(`${beds[1]} dorm.`);
-  const uf = lower.match(/(\d[\d.]*)\s*uf/i);
-  if (uf) chips.push(`Hasta UF ${parseInt(uf[1].replace(/\./g, '')).toLocaleString('es-CL')}`);
-  if (lower.includes('metro')) chips.push('Cerca de metro');
-  if (lower.includes('terraza')) chips.push('Terraza');
-  if (lower.includes('nueva') || lower.includes('nuevo')) chips.push('Nueva');
-  return chips;
-}
 
 interface ResultsHeaderProps {
   viewMode: ViewMode;
@@ -620,16 +589,16 @@ export function ResultsHeader({
     setIaChipsVisible(false);
     setIaLoadingChips(extractChipsSEO(text));
 
-    const t1 = setTimeout(() => { setIaLoadingStep(1); setIaChipsVisible(true); }, 2000);
-    const t2 = setTimeout(() => setIaLoadingStep(2), 4000);
-    const t3 = setTimeout(() => setIaLoadingStep(3), 6000);
-    const t4 = setTimeout(() => setIaLoadingStep(4), 8000);
+    const t1 = setTimeout(() => { setIaLoadingStep(1); setIaChipsVisible(true); }, STEP_TIMESTAMPS[1]);
+    const t2 = setTimeout(() => setIaLoadingStep(2), STEP_TIMESTAMPS[2]);
+    const t3 = setTimeout(() => setIaLoadingStep(3), STEP_TIMESTAMPS[3]);
+    const t4 = setTimeout(() => setIaLoadingStep(4), STEP_TIMESTAMPS[4]);
     const t5 = setTimeout(() => {
       setIaLoading(false);
       setIaLoadingStep(0);
       setIaChipsVisible(false);
       onSearch?.(text);
-    }, 9000);
+    }, SEARCH_TOTAL_MS);
 
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
   };
