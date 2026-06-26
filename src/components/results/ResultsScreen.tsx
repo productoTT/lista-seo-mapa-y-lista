@@ -99,6 +99,8 @@ export function ResultsScreen({
         onSortChange={onSortChange}
         advancedFilters={advancedFilters}
         onAdvancedFiltersChange={onAdvancedFiltersChange}
+        onSearch={onSearch}
+        interpretation={interpretation}
       />
     );
   }

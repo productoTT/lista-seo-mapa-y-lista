@@ -1,18 +1,10 @@
-import { ArrowLeft, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, SlidersHorizontal, Search, Sparkles } from 'lucide-react';
 import type { Filters } from '../../types/property';
 import { DEFAULT_FILTERS } from '../../types/property';
 
 export const MOBILE_HEADER_HEIGHT = 56;
 
 const INDIGO = '#3200C1';
-
-interface MobileHeaderProps {
-  filters: Filters;
-  query: string;
-  resultCount: number;
-  onGoBack: () => void;
-  onOpenFilters: () => void;
-}
 
 function filtersActive(f: Filters): boolean {
   return (
@@ -24,23 +16,31 @@ function filtersActive(f: Filters): boolean {
   );
 }
 
-function searchSummary(f: Filters, query: string): string {
+function searchLabel(f: Filters, query: string): string {
   if (query) return query;
   const parts: string[] = [];
   if (f.propertyType) {
     const map: Record<string, string> = { departamento: 'Departamentos', casa: 'Casas', oficina: 'Oficinas' };
     parts.push(map[f.propertyType] || f.propertyType);
-  } else {
-    parts.push('Propiedades');
   }
   if (f.zone) parts.push(f.zone);
   if (f.operation) parts.push(f.operation === 'arriendo' ? 'en arriendo' : 'en venta');
   return parts.join(' · ');
 }
 
-export function MobileHeader({ filters, query, resultCount, onGoBack, onOpenFilters }: MobileHeaderProps) {
+interface MobileHeaderProps {
+  filters: Filters;
+  query: string;
+  resultCount: number;
+  onGoBack: () => void;
+  onOpenFilters: () => void;
+  onOpenSearch: () => void;
+}
+
+export function MobileHeader({ filters, query, resultCount: _resultCount, onGoBack, onOpenFilters, onOpenSearch }: MobileHeaderProps) {
   const hasFilters = filtersActive(filters);
-  const label = searchSummary(filters, query);
+  const label = searchLabel(filters, query);
+  const isAI = !!query;
 
   return (
     <div
@@ -52,13 +52,14 @@ export function MobileHeader({ filters, query, resultCount, onGoBack, onOpenFilt
         borderBottom: '1px solid #E5E5E5',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '0 12px',
+        gap: 8,
+        padding: '0 10px',
         zIndex: 200,
         WebkitBackfaceVisibility: 'hidden',
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
+      {/* Back button */}
       <button
         onClick={onGoBack}
         aria-label="Volver"
@@ -72,18 +73,54 @@ export function MobileHeader({ filters, query, resultCount, onGoBack, onOpenFilt
         <ArrowLeft size={18} />
       </button>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{
-          fontSize: 13, fontWeight: 700, color: '#343A40',
-          margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      {/* Compact search bar — tappable, not editable */}
+      <button
+        onClick={onOpenSearch}
+        aria-label="Abrir buscador"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          height: 38,
+          padding: '0 12px',
+          borderRadius: 10,
+          border: '1.5px solid #E5E5E5',
+          background: '#F9F9F9',
+          cursor: 'pointer',
+          textAlign: 'left',
+          fontFamily: 'Nunito, sans-serif',
+          overflow: 'hidden',
+        }}
+      >
+        {isAI
+          ? <Sparkles size={14} style={{ color: INDIGO, flexShrink: 0 }} />
+          : <Search size={14} style={{ color: '#999', flexShrink: 0 }} />
+        }
+        <span style={{
+          fontSize: 13,
+          fontWeight: label ? 600 : 400,
+          color: label ? '#343A40' : '#999',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          flex: 1,
         }}>
-          {label}
-        </p>
-        <p style={{ fontSize: 11, color: '#888', margin: 0 }}>
-          {resultCount.toLocaleString('es-CL')} propiedades
-        </p>
-      </div>
+          {label || 'Ej: "Depto cerca de metro…"'}
+        </span>
+        <div style={{
+          flexShrink: 0,
+          width: 26, height: 26,
+          borderRadius: 7,
+          background: INDIGO,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Search size={13} style={{ color: '#fff' }} />
+        </div>
+      </button>
 
+      {/* Filters button */}
       <button
         onClick={onOpenFilters}
         aria-label="Abrir filtros"
