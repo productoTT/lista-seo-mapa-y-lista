@@ -73,9 +73,8 @@ export function MobileBannerSlider() {
   return (
     <div
       style={{
-        overflow: 'hidden',
-        // negative margin to bleed to container edge, then padding restores visual indent
-        marginLeft: -12,
+        overflow: 'visible',
+        marginLeft: 0,
         marginRight: -12,
       }}
     >
@@ -89,7 +88,7 @@ export function MobileBannerSlider() {
           overflowX: 'auto',
           scrollSnapType: 'x mandatory',
           WebkitOverflowScrolling: 'touch',
-          paddingLeft: 12,
+          paddingLeft: 0,
           paddingRight: 12,
           paddingBottom: 6,
           // hide scrollbar

@@ -250,7 +250,7 @@ export function MobileBottomSheet({
         <div
           style={{
             position: 'absolute',
-            top: 12,
+            bottom: 12,
             left: '50%', transform: 'translateX(-50%)',
             zIndex: 150,
             pointerEvents: 'auto',
