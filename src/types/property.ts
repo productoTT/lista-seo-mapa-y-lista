@@ -1,4 +1,21 @@
-export type PropertyType = 'departamento' | 'casa' | 'oficina';
+export type PropertyType =
+  | 'departamento' | 'casa' | 'oficina' | 'local_comercial' | 'bodega'
+  | 'estacionamiento' | 'parcela' | 'terreno' | 'campo_agricola'
+  | 'industrial' | 'vacacional';
+
+export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
+  casa: 'Casa',
+  departamento: 'Departamento',
+  oficina: 'Oficina',
+  local_comercial: 'Local comercial',
+  bodega: 'Bodega',
+  estacionamiento: 'Estacionamiento',
+  parcela: 'Parcela',
+  terreno: 'Terreno',
+  campo_agricola: 'Campo agrícola',
+  industrial: 'Industrial',
+  vacacional: 'Vacacional',
+};
 export type BadgeType = 'new' | 'price_drop' | 'opportunity';
 export type SortOption = 'relevant' | 'price_asc' | 'price_desc' | 'newest' | 'sqm_desc';
 export type OperationType = 'venta' | 'arriendo';
@@ -66,6 +83,7 @@ export const DEFAULT_FILTERS: Filters = {
 
 export interface AdvancedFilters {
   status: ('nueva' | 'usada')[];
+  region: string;
   barrio: string;
   bathroomsMin: number | null;
   bathroomsMax: number | null;
@@ -78,6 +96,7 @@ export interface AdvancedFilters {
 
 export const DEFAULT_ADVANCED_FILTERS: AdvancedFilters = {
   status: [],
+  region: '',
   barrio: '',
   bathroomsMin: null,
   bathroomsMax: null,

@@ -1,4 +1,4 @@
-import { ArrowLeft, SlidersHorizontal, Search, Sparkles } from 'lucide-react';
+import { ArrowLeft, Filter, Search, Sparkles } from 'lucide-react';
 import type { Filters } from '../../types/property';
 import { DEFAULT_FILTERS } from '../../types/property';
 
@@ -135,7 +135,7 @@ export function MobileHeader({ filters, query, resultCount: _resultCount, onGoBa
           color: hasFilters ? INDIGO : '#343A40',
         }}
       >
-        <SlidersHorizontal size={18} />
+        <Filter size={18} />
         {hasFilters && (
           <span style={{
             position: 'absolute', top: 7, right: 7,

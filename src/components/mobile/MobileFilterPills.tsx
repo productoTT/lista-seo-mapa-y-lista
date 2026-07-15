@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import type { Filters, AdvancedFilters } from '../../types/property';
-import { DEFAULT_FILTERS } from '../../types/property';
+import { DEFAULT_FILTERS, PROPERTY_TYPE_LABELS } from '../../types/property';
 
 const INDIGO = '#3200C1';
 const INDIGO_50 = '#EAF2FC';
@@ -21,7 +21,7 @@ function buildActiveFilters(
   if (filters.propertyType) {
     const map: Record<string, string> = { departamento: 'Departamentos', casa: 'Casas', oficina: 'Oficinas' };
     pills.push({
-      label: map[filters.propertyType] || filters.propertyType,
+      label: map[filters.propertyType] || PROPERTY_TYPE_LABELS[filters.propertyType],
       onRemove: () => onFiltersChange({ propertyType: null }),
     });
   }

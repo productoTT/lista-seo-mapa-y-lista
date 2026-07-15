@@ -1,4 +1,5 @@
 import type { Filters } from '../../types/property';
+import { PROPERTY_TYPE_LABELS } from '../../types/property';
 
 interface SeoPageInfoProps {
   filters: Filters;
@@ -24,7 +25,9 @@ function getBreadcrumb(filters: Filters): { label: string; last: boolean }[] {
   if (filters.propertyType) {
     crumbs.push({
       label: filters.propertyType === 'departamento' ? 'Departamento'
-        : filters.propertyType === 'casa' ? 'Casa' : 'Oficina',
+        : filters.propertyType === 'casa' ? 'Casa'
+        : filters.propertyType === 'oficina' ? 'Oficina'
+        : PROPERTY_TYPE_LABELS[filters.propertyType],
       last: !filters.zone,
     });
   }

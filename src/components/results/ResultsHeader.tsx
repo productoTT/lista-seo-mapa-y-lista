@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Search, Sparkles, SlidersHorizontal, X, ChevronDown,
+  Search, Sparkles, Filter, X, ChevronDown,
   List, Map, Columns2, Bookmark, BookmarkCheck,
 } from 'lucide-react';
 import type { Filters, AdvancedFilters, ViewMode, OperationType, PropertyType } from '../../types/property';
+import { PROPERTY_TYPE_LABELS } from '../../types/property';
 import { zones_list } from '../../data/mockProperties';
 
 const INDIGO = '#3200C1';
@@ -537,7 +538,10 @@ export function ResultsHeader({
   const chips: { label: string; onRemove: () => void }[] = [];
   if (filters.zone) chips.push({ label: filters.zone, onRemove: () => onFiltersChange({ zone: '' }) });
   if (filters.propertyType) chips.push({
-    label: filters.propertyType === 'departamento' ? 'Departamentos' : filters.propertyType === 'casa' ? 'Casas' : 'Oficinas',
+    label: filters.propertyType === 'departamento' ? 'Departamentos'
+      : filters.propertyType === 'casa' ? 'Casas'
+      : filters.propertyType === 'oficina' ? 'Oficinas'
+      : PROPERTY_TYPE_LABELS[filters.propertyType],
     onRemove: () => onFiltersChange({ propertyType: null }),
   });
   if (filters.bedrooms !== null) chips.push({
@@ -578,6 +582,7 @@ export function ResultsHeader({
   const typeLabel = filters.propertyType === 'departamento' ? 'Departamentos'
     : filters.propertyType === 'casa' ? 'Casas'
     : filters.propertyType === 'oficina' ? 'Oficinas'
+    : filters.propertyType ? PROPERTY_TYPE_LABELS[filters.propertyType]
     : 'Tipo propiedad';
 
   const handleIaSearch = (q: string) => {
@@ -724,7 +729,7 @@ export function ResultsHeader({
             flexShrink: 0, whiteSpace: 'nowrap',
           }}
         >
-          <SlidersHorizontal size={13} />
+          <Filter size={13} />
           Más filtros
           {activeFilterCount > 0 && (
             <span style={{

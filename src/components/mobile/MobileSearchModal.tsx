@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Search, ChevronDown } from 'lucide-react';
 import type { Filters, AdvancedFilters, OperationType, PropertyType } from '../../types/property';
-import { DEFAULT_FILTERS } from '../../types/property';
+import { DEFAULT_FILTERS, PROPERTY_TYPE_LABELS } from '../../types/property';
 import { zones_list } from '../../data/mockProperties';
+import { RangeInputs } from '../modals/AdvancedFiltersContent';
+import { BARRIOS, SQM_PRESETS } from '../modals/filterPresets';
 import {
   STEP_TIMESTAMPS,
   SEARCH_TOTAL_MS,
   extractChipsSEO,
 } from '../ia/IASearchShared';
 import { IALoadingCard } from '../ia/IALoadingCard';
+
+const UF_TO_CLP = 38000;
 
 const INDIGO = '#3200C1';
 const INDIGO_50 = '#EAF2FC';
@@ -371,11 +375,14 @@ interface ClassicTabProps {
   onSearch: () => void;
 }
 
+const PROP_TYPES_ORDER: PropertyType[] = [
+  'departamento', 'casa', 'oficina', 'local_comercial', 'bodega',
+  'estacionamiento', 'parcela', 'terreno', 'campo_agricola', 'industrial', 'vacacional',
+];
+
 const PROP_TYPES: { value: PropertyType | null; label: string }[] = [
   { value: null, label: 'Todos' },
-  { value: 'departamento', label: 'Departamento' },
-  { value: 'casa', label: 'Casa' },
-  { value: 'oficina', label: 'Oficina' },
+  ...PROP_TYPES_ORDER.map(t => ({ value: t as PropertyType | null, label: PROPERTY_TYPE_LABELS[t] })),
 ];
 
 const BEDROOMS_OPTIONS: { value: number | null; label: string }[] = [
@@ -387,7 +394,32 @@ const BEDROOMS_OPTIONS: { value: number | null; label: string }[] = [
   { value: 4, label: '4+' },
 ];
 
-const PRICE_OPTIONS = [0, 1000, 2000, 3000, 5000, 8000, 10000, 15000, 20000, 25000];
+const BATHROOMS_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: '1' },
+  { value: 2, label: '2' },
+  { value: 3, label: '3' },
+  { value: 4, label: '4+' },
+];
+
+const PRICE_RANGES = [
+  { min: 0, max: 4000 },
+  { min: 4001, max: 6000 },
+  { min: 6001, max: 10000 },
+  { min: 10001, max: DEFAULT_FILTERS.priceMaxUF },
+];
+
+function priceRangeLabel(min: number, max: number, currency: 'UF' | 'CLP'): string {
+  const isLast = max >= DEFAULT_FILTERS.priceMaxUF;
+  if (currency === 'UF') {
+    return isLast
+      ? `UF ${min.toLocaleString('es-CL')} o más`
+      : `UF ${min.toLocaleString('es-CL')} - UF ${max.toLocaleString('es-CL')}`;
+  }
+  const minClp = min * UF_TO_CLP, maxClp = max * UF_TO_CLP;
+  return isLast
+    ? `$${minClp.toLocaleString('es-CL')} o más`
+    : `$${minClp.toLocaleString('es-CL')} - $${maxClp.toLocaleString('es-CL')}`;
+}
 
 function Label({ children }: { children: React.ReactNode }) {
   return <p style={{ fontSize: 12, fontWeight: 700, color: FG1, margin: '0 0 8px' }}>{children}</p>;
@@ -421,7 +453,46 @@ function ChipRow<T>({ options, current, onSelect }: {
   );
 }
 
+function MobileCheckbox({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      onClick={onChange}
+      aria-pressed={checked}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        border: 'none', background: 'transparent', padding: '6px 0',
+        cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, textAlign: 'left',
+      }}
+    >
+      <div style={{
+        width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+        border: `2px solid ${checked ? INDIGO : '#C4C4C4'}`,
+        background: checked ? INDIGO : '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.12s',
+      }}>
+        {checked && (
+          <svg width="11" height="9" viewBox="0 0 10 8" fill="none">
+            <path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
+      <span style={{ fontSize: 14, color: FG1, fontWeight: 600 }}>{label}</span>
+    </button>
+  );
+}
+
 function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdvanced, onSearch }: ClassicTabProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [bedFrom, setBedFrom] = useState('');
+  const [bedTo, setBedTo] = useState('');
+  const [bathFrom, setBathFrom] = useState('');
+  const [bathTo, setBathTo] = useState('');
+  const [priceFrom, setPriceFrom] = useState('');
+  const [priceTo, setPriceTo] = useState('');
+  const [sqmFrom, setSqmFrom] = useState('');
+  const [sqmTo, setSqmTo] = useState('');
+
   const setF = (partial: Partial<Filters>) => setLocalFilters({ ...localFilters, ...partial });
   const setA = (partial: Partial<AdvancedFilters>) => setLocalAdvanced({ ...localAdvanced, ...partial });
 
@@ -430,13 +501,38 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
     setA({ status: current.includes(s) ? current.filter(x => x !== s) : [...current, s] });
   };
 
+  const currency = localAdvanced.priceCurrency;
+  const activePriceRange = PRICE_RANGES.find(r => localFilters.priceMinUF === r.min && localFilters.priceMaxUF === r.max);
+  const activeSqmPreset = SQM_PRESETS.find(p => localAdvanced.sqmMin === p.min && localAdvanced.sqmMax === p.max);
+
+  const advancedActiveCount = [
+    localAdvanced.status.length > 0,
+    !!localAdvanced.barrio,
+    localFilters.bedrooms !== null,
+    localAdvanced.bathroomsMin !== null || localAdvanced.bathroomsMax !== null,
+    localFilters.priceMinUF > 0 || localFilters.priceMaxUF < DEFAULT_FILTERS.priceMaxUF,
+    localAdvanced.sqmMin !== null || localAdvanced.sqmMax !== null,
+    localAdvanced.tourVirtual,
+    localAdvanced.video,
+  ].filter(Boolean).length;
+
+  const toggleLabel = expanded
+    ? 'Ocultar filtros'
+    : advancedActiveCount > 0 ? `Más filtros · ${advancedActiveCount}` : 'Más filtros';
+
+  const selectStyle: React.CSSProperties = {
+    width: '100%', padding: '11px 36px 11px 14px', borderRadius: 10,
+    border: '1.5px solid #E5E5E5', background: '#fff',
+    fontSize: 14, fontFamily: 'Nunito, sans-serif',
+    outline: 'none', appearance: 'none', cursor: 'pointer', minHeight: 44,
+  };
+
   return (
     <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
         <Label>Operación</Label>
         <ChipRow<OperationType | null>
           options={[
-            { value: null, label: 'Todas' },
             { value: 'venta', label: 'Comprar' },
             { value: 'arriendo', label: 'Arrendar' },
           ]}
@@ -455,93 +551,262 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
       </div>
 
       <div>
-        <Label>Ubicación / Comuna</Label>
+        <Label>Región</Label>
         <div style={{ position: 'relative' }}>
           <select
-            value={localFilters.zone}
-            onChange={e => setF({ zone: e.target.value })}
-            style={{
-              width: '100%', padding: '11px 36px 11px 14px', borderRadius: 10,
-              border: '1.5px solid #E5E5E5', background: '#fff',
-              color: localFilters.zone ? FG1 : '#999',
-              fontSize: 14, fontFamily: 'Nunito, sans-serif',
-              outline: 'none', appearance: 'none', cursor: 'pointer', minHeight: 44,
+            value={localAdvanced.region}
+            onChange={e => {
+              const region = e.target.value;
+              setA({ region });
+              if (!region) setF({ zone: '' });
             }}
+            style={{ ...selectStyle, color: localAdvanced.region ? FG1 : '#999' }}
           >
-            <option value="">Todas las comunas</option>
-            {zones_list.map(z => <option key={z} value={z}>{z}</option>)}
+            <option value="">Región</option>
+            <option value="Región Metropolitana">Región Metropolitana</option>
           </select>
           <ChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#999', pointerEvents: 'none' }} />
         </div>
       </div>
 
       <div>
-        <Label>Dormitorios</Label>
-        <ChipRow<number | null>
-          options={BEDROOMS_OPTIONS}
-          current={localFilters.bedrooms}
-          onSelect={v => setF({ bedrooms: v })}
-        />
-      </div>
-
-      <div>
-        <Label>Precio en UF</Label>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ flex: 1, position: 'relative' }}>
-            <select
-              value={localFilters.priceMinUF}
-              onChange={e => setF({ priceMinUF: Number(e.target.value) })}
-              style={{
-                width: '100%', padding: '11px 28px 11px 14px', borderRadius: 10,
-                border: '1.5px solid #E5E5E5', background: '#fff', color: FG1,
-                fontSize: 13, fontFamily: 'Nunito, sans-serif',
-                outline: 'none', appearance: 'none', cursor: 'pointer', minHeight: 44,
-              }}
-            >
-              {PRICE_OPTIONS.map(v => <option key={v} value={v}>{v === 0 ? 'Sin mínimo' : `UF ${v.toLocaleString('es-CL')}`}</option>)}
-            </select>
-            <ChevronDown size={14} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#999', pointerEvents: 'none' }} />
-          </div>
-          <div style={{ flex: 1, position: 'relative' }}>
-            <select
-              value={localFilters.priceMaxUF}
-              onChange={e => setF({ priceMaxUF: Number(e.target.value) })}
-              style={{
-                width: '100%', padding: '11px 28px 11px 14px', borderRadius: 10,
-                border: '1.5px solid #E5E5E5', background: '#fff', color: FG1,
-                fontSize: 13, fontFamily: 'Nunito, sans-serif',
-                outline: 'none', appearance: 'none', cursor: 'pointer', minHeight: 44,
-              }}
-            >
-              {PRICE_OPTIONS.slice(1).concat([DEFAULT_FILTERS.priceMaxUF]).map(v => (
-                <option key={v} value={v}>{v >= DEFAULT_FILTERS.priceMaxUF ? 'Sin máximo' : `UF ${v.toLocaleString('es-CL')}`}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#999', pointerEvents: 'none' }} />
-          </div>
+        <Label>Comuna</Label>
+        <div style={{ position: 'relative' }}>
+          <select
+            value={localFilters.zone}
+            onChange={e => setF({ zone: e.target.value })}
+            disabled={!localAdvanced.region}
+            style={{
+              ...selectStyle,
+              color: localFilters.zone ? FG1 : '#999',
+              background: localAdvanced.region ? '#fff' : '#F5F5F5',
+              cursor: localAdvanced.region ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <option value="">{localAdvanced.region ? 'Todas las comunas' : 'Selecciona una región primero'}</option>
+            {localAdvanced.region && zones_list.map(z => <option key={z} value={z}>{z}</option>)}
+          </select>
+          <ChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#999', pointerEvents: 'none' }} />
         </div>
       </div>
 
+      {/* ── Secondary disclosure control + expandable filters (single flex child, own internal spacing) ── */}
       <div>
-        <Label>Estado</Label>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {(['nueva', 'usada'] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => toggleStatus(s)}
-              style={{
-                padding: '7px 14px', borderRadius: 20,
-                border: `1.5px solid ${localAdvanced.status.includes(s) ? INDIGO : '#E5E5E5'}`,
-                background: localAdvanced.status.includes(s) ? INDIGO_50 : '#fff',
-                color: localAdvanced.status.includes(s) ? INDIGO : '#555',
-                fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-                minHeight: 36, textTransform: 'capitalize',
-              }}
-            >
-              {s === 'nueva' ? 'Nueva' : 'Usada'}
-            </button>
-          ))}
+        <button
+          onClick={() => setExpanded(e => !e)}
+          aria-expanded={expanded}
+          aria-controls="mobile-classic-more-filters"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            width: '100%', minHeight: 44,
+            padding: '10px 0', margin: 0,
+            border: 'none', borderTop: '1px solid #E5E5E5',
+            background: 'transparent', color: '#555',
+            fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+            cursor: 'pointer',
+          }}
+        >
+          {toggleLabel}
+          <ChevronDown
+            size={16}
+            style={{ transition: 'transform 0.2s ease', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          />
+        </button>
+
+        {/* ── Expandable advanced filters ─────────────────────────── */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateRows: expanded ? '1fr' : '0fr',
+            transition: 'grid-template-rows 0.25s ease',
+          }}
+        >
+        <div id="mobile-classic-more-filters" style={{ overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 20 }}>
+
+            <div>
+              <Label>Estado</Label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['nueva', 'usada'] as const).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => toggleStatus(s)}
+                    style={{
+                      padding: '7px 14px', borderRadius: 20,
+                      border: `1.5px solid ${localAdvanced.status.includes(s) ? INDIGO : '#E5E5E5'}`,
+                      background: localAdvanced.status.includes(s) ? INDIGO_50 : '#fff',
+                      color: localAdvanced.status.includes(s) ? INDIGO : '#555',
+                      fontSize: 13, fontWeight: 700,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      minHeight: 36, textTransform: 'capitalize',
+                    }}
+                  >
+                    {s === 'nueva' ? 'Nueva' : 'Usada'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label>Ubicación detallada</Label>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={localAdvanced.barrio}
+                  onChange={e => setA({ barrio: e.target.value })}
+                  style={{ ...selectStyle, color: localAdvanced.barrio ? FG1 : '#999' }}
+                >
+                  <option value="">Barrio</option>
+                  {BARRIOS.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+                <ChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#999', pointerEvents: 'none' }} />
+              </div>
+            </div>
+
+            <div>
+              <Label>Dormitorios</Label>
+              <ChipRow<number | null>
+                options={BEDROOMS_OPTIONS}
+                current={localFilters.bedrooms}
+                onSelect={v => setF({ bedrooms: v })}
+              />
+              <RangeInputs
+                fromVal={bedFrom} toVal={bedTo}
+                onFromChange={setBedFrom} onToChange={setBedTo}
+                onApply={() => {
+                  const from = parseInt(bedFrom);
+                  setF({ bedrooms: isNaN(from) ? null : from });
+                  setBedFrom(''); setBedTo('');
+                }}
+              />
+            </div>
+
+            <div>
+              <Label>Baños</Label>
+              <ChipRow<number | null>
+                options={BATHROOMS_OPTIONS}
+                current={localAdvanced.bathroomsMin}
+                onSelect={v => setA({ bathroomsMin: localAdvanced.bathroomsMin === v ? null : v, bathroomsMax: null })}
+              />
+              <RangeInputs
+                fromVal={bathFrom} toVal={bathTo}
+                onFromChange={setBathFrom} onToChange={setBathTo}
+                onApply={() => {
+                  const from = parseInt(bathFrom);
+                  const to = parseInt(bathTo);
+                  setA({ bathroomsMin: isNaN(from) ? null : from, bathroomsMax: isNaN(to) ? null : to });
+                  setBathFrom(''); setBathTo('');
+                }}
+              />
+            </div>
+
+            <div>
+              <Label>Precios</Label>
+              <div style={{ display: 'flex', gap: 0, border: '1px solid #E5E5E5', borderRadius: 4, overflow: 'hidden', width: 'fit-content', marginBottom: 10 }}>
+                {(['CLP', 'UF'] as const).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setA({ priceCurrency: c })}
+                    style={{
+                      padding: '6px 18px', border: 0, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                      ...(currency === c ? { background: INDIGO, color: '#fff' } : { background: '#fff', color: '#666' }),
+                    }}
+                  >
+                    {c === 'CLP' ? '$' : 'UF'}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {PRICE_RANGES.map(r => (
+                  <button
+                    key={`${r.min}-${r.max}`}
+                    onClick={() => {
+                      if (activePriceRange?.min === r.min && activePriceRange?.max === r.max) {
+                        setF({ priceMinUF: 0, priceMaxUF: DEFAULT_FILTERS.priceMaxUF });
+                      } else {
+                        setF({ priceMinUF: r.min, priceMaxUF: r.max });
+                      }
+                    }}
+                    style={{
+                      padding: '8px 14px', textAlign: 'left', borderRadius: 8,
+                      border: `1.5px solid ${activePriceRange?.min === r.min && activePriceRange?.max === r.max ? INDIGO : '#E5E5E5'}`,
+                      background: activePriceRange?.min === r.min && activePriceRange?.max === r.max ? INDIGO_50 : '#fff',
+                      color: activePriceRange?.min === r.min && activePriceRange?.max === r.max ? INDIGO : '#555',
+                      fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', minHeight: 40,
+                    }}
+                  >
+                    {priceRangeLabel(r.min, r.max, currency)}
+                  </button>
+                ))}
+              </div>
+              <RangeInputs
+                fromVal={priceFrom} toVal={priceTo}
+                onFromChange={setPriceFrom} onToChange={setPriceTo}
+                placeholder="UF"
+                onApply={() => {
+                  const from = parseFloat(priceFrom);
+                  const to = parseFloat(priceTo);
+                  setF({ priceMinUF: isNaN(from) ? 0 : from, priceMaxUF: isNaN(to) ? DEFAULT_FILTERS.priceMaxUF : to });
+                  setPriceFrom(''); setPriceTo('');
+                }}
+              />
+            </div>
+
+            <div>
+              <Label>Superficie útil</Label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {SQM_PRESETS.map(preset => (
+                  <button
+                    key={preset.label}
+                    onClick={() => {
+                      if (activeSqmPreset?.label === preset.label) {
+                        setA({ sqmMin: null, sqmMax: null });
+                      } else {
+                        setA({ sqmMin: preset.min, sqmMax: preset.max });
+                      }
+                    }}
+                    style={{
+                      padding: '7px 14px', borderRadius: 20,
+                      border: `1.5px solid ${activeSqmPreset?.label === preset.label ? INDIGO : '#E5E5E5'}`,
+                      background: activeSqmPreset?.label === preset.label ? INDIGO_50 : '#fff',
+                      color: activeSqmPreset?.label === preset.label ? INDIGO : '#555',
+                      fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', minHeight: 36,
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <RangeInputs
+                fromVal={sqmFrom} toVal={sqmTo}
+                onFromChange={setSqmFrom} onToChange={setSqmTo}
+                placeholder="m²"
+                onApply={() => {
+                  const from = parseFloat(sqmFrom);
+                  const to = parseFloat(sqmTo);
+                  setA({ sqmMin: isNaN(from) ? null : from, sqmMax: isNaN(to) ? null : to });
+                  setSqmFrom(''); setSqmTo('');
+                }}
+              />
+            </div>
+
+            <div>
+              <Label>Multimedia</Label>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <MobileCheckbox
+                  checked={localAdvanced.tourVirtual}
+                  onChange={() => setA({ tourVirtual: !localAdvanced.tourVirtual })}
+                  label="Tour virtual"
+                />
+                <MobileCheckbox
+                  checked={localAdvanced.video}
+                  onChange={() => setA({ video: !localAdvanced.video })}
+                  label="Video"
+                />
+              </div>
+            </div>
+
+          </div>
+        </div>
         </div>
       </div>
 

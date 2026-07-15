@@ -1,17 +1,13 @@
 import { useState } from 'react';
 import { X, ArrowRight } from 'lucide-react';
 import type { Filters, AdvancedFilters } from '../../types/property';
+import { BARRIOS, SQM_PRESETS } from './filterPresets';
 
 const INDIGO = '#3200C1';
 const INDIGO_50 = '#EAF2FC';
 const FG1 = '#343A40';
 const FG3 = '#666666';
 const DIVIDER = '#E5E5E5';
-
-const BARRIOS = [
-  'Plaza Ñuñoa', 'Irarrázaval', 'Simón Bolívar', 'Metro Chile España',
-  'Los Dominicos', 'Escuela Militar', 'Pocuro', 'Pedro de Valdivia',
-];
 
 const PRICE_PRESETS: Record<'UF' | 'CLP', { label: string; minUF: number; maxUF: number }[]> = {
   UF: [
@@ -27,12 +23,6 @@ const PRICE_PRESETS: Record<'UF' | 'CLP', { label: string; minUF: number; maxUF:
     { label: 'Más de $365.590.101', minUF: 8501, maxUF: 25000 },
   ],
 };
-
-const SQM_PRESETS = [
-  { label: 'Hasta 50 m²', min: 0, max: 50 },
-  { label: '50 a 100 m²', min: 50, max: 100 },
-  { label: 'Más de 100 m²', min: 100, max: 9999 },
-];
 
 // ── Shared mini components ────────────────────────────────
 
@@ -86,7 +76,7 @@ function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: ()
   );
 }
 
-function RangeInputs({
+export function RangeInputs({
   fromVal, toVal, onFromChange, onToChange, onApply, placeholder,
 }: {
   fromVal: string; toVal: string;
