@@ -252,7 +252,7 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
           {/* Tabs — float directly on purple */}
           <div style={{ display: 'flex', gap: 0, marginBottom: 12 }}>
             {([
-              { key: 'traditional' as const, label: 'Búsqueda tradicional' },
+              { key: 'traditional' as const, label: 'Búsqueda clásica' },
               { key: 'ia' as const, label: 'Búsqueda con IA ✨' },
             ]).map(t => (
               <button
