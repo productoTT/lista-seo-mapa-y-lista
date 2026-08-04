@@ -3,42 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, Sparkles, ChevronDown, Key, TrendingUp, Building2 } from 'lucide-react';
 import { ToctocFullHeader } from '../seo/ToctocFullHeader';
 import type { Filters, OperationType, PropertyType } from '../../types/property';
-
-// ── IA chip extraction (mirrors parseQuery in App.tsx) ────
-const ZONES_MAP: Record<string, string> = {
-  'ñuñoa': 'Ñuñoa', 'providencia': 'Providencia', 'las condes': 'Las Condes',
-  'vitacura': 'Vitacura', 'santiago centro': 'Santiago Centro', 'santiago': 'Santiago',
-  'miraflores': 'Miraflores', 'la florida': 'La Florida', 'peñalolén': 'Peñalolén', 'la reina': 'La Reina',
-};
-
-function extractChips(q: string): string[] {
-  const lower = q.toLowerCase();
-  const chips: string[] = [];
-  if (lower.includes('arriend') || lower.includes('alquil')) chips.push('Arriendo');
-  else chips.push('Comprar');
-  if (lower.includes('depto') || lower.includes('departamento') || lower.includes('dpto')) chips.push('Departamento');
-  else if (lower.includes('casa')) chips.push('Casa');
-  else if (lower.includes('oficina')) chips.push('Oficina');
-  for (const z of Object.keys(ZONES_MAP)) {
-    if (lower.includes(z)) { chips.push(ZONES_MAP[z]); break; }
-  }
-  const beds = lower.match(/(\d)\s*dorm/);
-  if (beds) chips.push(`${beds[1]} dorm.`);
-  const uf = lower.match(/(\d[\d.]*)\s*uf/i);
-  if (uf) chips.push(`Hasta UF ${parseInt(uf[1].replace(/\./g, '')).toLocaleString('es-CL')}`);
-  if (lower.includes('metro')) chips.push('Cerca de metro');
-  if (lower.includes('terraza')) chips.push('Terraza');
-  if (lower.includes('estacionamiento')) chips.push('Estacionamiento');
-  return chips;
-}
-
-const LOADING_STEPS = [
-  'Interpretando tu búsqueda…',
-  'Detectando comuna, tipo de propiedad y presupuesto…',
-  'Buscando propiedades que coincidan con tus criterios…',
-  'Ordenando resultados relevantes…',
-  'Preparando tu lista de propiedades…',
-];
+import { LOADING_STEPS, STEP_TIMESTAMPS, SEARCH_TOTAL_MS } from '../ia/IASearchShared';
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -122,8 +87,6 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
   const [iaSuggestionsOpen, setIaSuggestionsOpen] = useState(false);
   const [iaLoading, setIaLoading] = useState(false);
   const [iaLoadingStep, setIaLoadingStep] = useState(0);
-  const [iaChips, setIaChips] = useState<string[]>([]);
-  const [iaChipsVisible, setIaChipsVisible] = useState(false);
   const iaInputRef = useRef<HTMLDivElement>(null);
   const [iaInputRect, setIaInputRect] = useState<DOMRect | null>(null);
 
@@ -177,21 +140,17 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
     setIaSuggestionsOpen(false);
     setIaLoading(true);
     setIaLoadingStep(0);
-    setIaChipsVisible(false);
-    setIaChips(extractChips(text));
 
-    const t1 = setTimeout(() => { setIaLoadingStep(1); setIaChipsVisible(true); }, 2000);
-    const t2 = setTimeout(() => { setIaLoadingStep(2); }, 4000);
-    const t3 = setTimeout(() => { setIaLoadingStep(3); }, 6000);
-    const t4 = setTimeout(() => { setIaLoadingStep(4); }, 8000);
-    const t5 = setTimeout(() => {
+    const t1 = setTimeout(() => setIaLoadingStep(1), STEP_TIMESTAMPS[1]);
+    const t2 = setTimeout(() => setIaLoadingStep(2), STEP_TIMESTAMPS[2]);
+    const t3 = setTimeout(() => setIaLoadingStep(3), STEP_TIMESTAMPS[3]);
+    const t4 = setTimeout(() => {
       setIaLoading(false);
       setIaLoadingStep(0);
-      setIaChipsVisible(false);
       onSearch(text);
-    }, 9000);
+    }, SEARCH_TOTAL_MS);
 
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }
 
   function handleIaKey(e: KeyboardEvent) {
@@ -464,57 +423,17 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
                     padding: '18px 20px 0',
                   }}
                 >
-                  {/* Top row: icon + messages */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  {/* Icon + generic message */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <Sparkles
                       size={20}
                       color={INDIGO}
                       className="ia-sparkle-icon"
-                      style={{ flexShrink: 0, marginTop: 2, animation: 'ia-sparkle-pulse 1.2s ease-in-out infinite' }}
+                      style={{ flexShrink: 0, animation: 'ia-sparkle-pulse 1.2s ease-in-out infinite' }}
                     />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: INDIGO, transition: 'all 0.3s' }}>
-                        {LOADING_STEPS[iaLoadingStep]}
-                      </p>
-                      <p style={{ margin: '3px 0 0', fontSize: 12, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        "{iaQuery}"
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Chips — appear after step 1 */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 6,
-                      marginTop: iaChipsVisible && iaChips.length > 0 ? 12 : 0,
-                      maxHeight: iaChipsVisible && iaChips.length > 0 ? 60 : 0,
-                      overflow: 'hidden',
-                      transition: 'max-height 0.35s ease, margin-top 0.35s ease',
-                    }}
-                  >
-                    {iaChips.map((chip, i) => (
-                      <span
-                        key={chip}
-                        className="ia-chip"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: '4px 10px',
-                          borderRadius: 20,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: '#EAF2FC',
-                          color: INDIGO,
-                          border: `1px solid rgba(50,0,193,0.15)`,
-                          animation: `ia-chip-in 0.25s ease both`,
-                          animationDelay: `${i * 80}ms`,
-                        }}
-                      >
-                        {chip}
-                      </span>
-                    ))}
+                    <p key={iaLoadingStep} style={{ margin: 0, fontSize: 14, fontWeight: 700, color: INDIGO, animation: 'ia-chip-in 0.25s ease both' }}>
+                      {LOADING_STEPS[iaLoadingStep]}
+                    </p>
                   </div>
 
                   {/* Progress bar */}

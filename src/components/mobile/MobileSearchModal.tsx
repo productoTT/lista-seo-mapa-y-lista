@@ -50,10 +50,11 @@ export function MobileSearchModal({
   const [aiQuery, setAiQuery] = useState(query);
   const [aiChips, setAiChips] = useState<string[]>([]);
 
-  // Loading state — shared with desktop logic
+  // Loading state — shared with desktop logic. El loader en sí es genérico
+  // (ver IALoadingCard): aiChips solo alimenta el preview de interpretación
+  // que se muestra ANTES de buscar, mientras el usuario escribe.
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
-  const [chipsVisible, setChipsVisible] = useState(false);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Classic tab local state (only applied on Buscar)
@@ -70,7 +71,6 @@ export function MobileSearchModal({
       cancelTimers();
       setLoading(false);
       setLoadingStep(0);
-      setChipsVisible(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -105,28 +105,23 @@ export function MobileSearchModal({
     const text = aiQuery.trim();
     if (!text || loading) return;
 
-    const chips = extractChipsSEO(text);
-    setAiChips(chips);
     setLoading(true);
     setLoadingStep(0);
-    setChipsVisible(false);
     cancelTimers();
 
     // Mirror exact desktop timing from STEP_TIMESTAMPS
-    const t1 = setTimeout(() => { setLoadingStep(1); setChipsVisible(true); }, STEP_TIMESTAMPS[1]);
+    const t1 = setTimeout(() => setLoadingStep(1), STEP_TIMESTAMPS[1]);
     const t2 = setTimeout(() => setLoadingStep(2), STEP_TIMESTAMPS[2]);
     const t3 = setTimeout(() => setLoadingStep(3), STEP_TIMESTAMPS[3]);
-    const t4 = setTimeout(() => setLoadingStep(4), STEP_TIMESTAMPS[4]);
-    const t5 = setTimeout(() => {
+    const t4 = setTimeout(() => {
       cancelTimers();
       setLoading(false);
       setLoadingStep(0);
-      setChipsVisible(false);
       onSearch(text);
       onClose();
     }, SEARCH_TOTAL_MS);
 
-    timersRef.current = [t1, t2, t3, t4, t5];
+    timersRef.current = [t1, t2, t3, t4];
   };
 
   const handleClose = () => {
@@ -134,7 +129,6 @@ export function MobileSearchModal({
     cancelTimers();
     setLoading(false);
     setLoadingStep(0);
-    setChipsVisible(false);
     onClose();
   };
 
@@ -239,12 +233,7 @@ export function MobileSearchModal({
         {tab === 'ai' ? (
           loading ? (
             /* ── Loader card — replaces form content during processing ── */
-            <IALoadingCard
-              query={aiQuery}
-              step={loadingStep}
-              chips={aiChips}
-              chipsVisible={chipsVisible}
-            />
+            <IALoadingCard step={loadingStep} />
           ) : (
             <AITab
               aiQuery={aiQuery}

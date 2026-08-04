@@ -15,7 +15,7 @@ const FG1 = '#343A40';
 const FG3 = '#666666';
 const DIVIDER = '#E5E5E5';
 
-import { LOADING_STEPS as LOADING_STEPS_SEO, STEP_TIMESTAMPS, SEARCH_TOTAL_MS, extractChipsSEO } from '../ia/IASearchShared';
+import { LOADING_STEPS as LOADING_STEPS_SEO, STEP_TIMESTAMPS, SEARCH_TOTAL_MS } from '../ia/IASearchShared';
 
 const IA_SUGGESTIONS = [
   'Deptos en Providencia cerca de metro',
@@ -531,8 +531,6 @@ export function ResultsHeader({
   const [iaText, setIaText] = useState(query || '');
   const [iaLoading, setIaLoading] = useState(false);
   const [iaLoadingStep, setIaLoadingStep] = useState(0);
-  const [iaLoadingChips, setIaLoadingChips] = useState<string[]>([]);
-  const [iaChipsVisible, setIaChipsVisible] = useState(false);
 
   // Chips computation — basic filters
   const chips: { label: string; onRemove: () => void }[] = [];
@@ -591,21 +589,17 @@ export function ResultsHeader({
     setIaText(text);
     setIaLoading(true);
     setIaLoadingStep(0);
-    setIaChipsVisible(false);
-    setIaLoadingChips(extractChipsSEO(text));
 
-    const t1 = setTimeout(() => { setIaLoadingStep(1); setIaChipsVisible(true); }, STEP_TIMESTAMPS[1]);
+    const t1 = setTimeout(() => setIaLoadingStep(1), STEP_TIMESTAMPS[1]);
     const t2 = setTimeout(() => setIaLoadingStep(2), STEP_TIMESTAMPS[2]);
     const t3 = setTimeout(() => setIaLoadingStep(3), STEP_TIMESTAMPS[3]);
-    const t4 = setTimeout(() => setIaLoadingStep(4), STEP_TIMESTAMPS[4]);
-    const t5 = setTimeout(() => {
+    const t4 = setTimeout(() => {
       setIaLoading(false);
       setIaLoadingStep(0);
-      setIaChipsVisible(false);
       onSearch?.(text);
     }, SEARCH_TOTAL_MS);
 
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   };
 
   const rowBase: React.CSSProperties = {
@@ -646,15 +640,8 @@ export function ResultsHeader({
                 color={INDIGO}
                 style={{ flexShrink: 0, animation: 'ia-sparkle-pulse 1.2s ease-in-out infinite' }}
               />
-              <span style={{ fontSize: 12, fontWeight: 700, color: INDIGO, flexShrink: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: INDIGO }}>
                 {LOADING_STEPS_SEO[iaLoadingStep]}
-              </span>
-              <span style={{
-                fontSize: 11, color: FG3,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                flex: 1, minWidth: 0,
-              }}>
-                "{iaText}"
               </span>
             </div>
           ) : (
@@ -750,32 +737,12 @@ export function ResultsHeader({
         </div>
       </div>
 
-      {/* ── Row 2: active filter chips OR interpreted loading chips ── */}
-      {(chips.length > 0 || (iaLoading && iaChipsVisible && iaLoadingChips.length > 0)) && (
+      {/* ── Row 2: active filter chips — ocultos mientras el loader está activo (genérico, sin criterios) ── */}
+      {!iaLoading && chips.length > 0 && (
         <div className="seo-container" style={{ ...rowBase, paddingTop: 0, paddingBottom: 10, gap: 6, flexWrap: 'wrap' }}>
-          {iaLoading && iaChipsVisible
-            ? iaLoadingChips.map((chip, i) => (
-                <span
-                  key={chip}
-                  className="ia-chip"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center',
-                    padding: '4px 10px',
-                    background: INDIGO_50, color: INDIGO,
-                    border: '1px solid #C7D8FF',
-                    borderRadius: 4, fontSize: 12, fontWeight: 600,
-                    animation: 'ia-chip-in 0.25s ease both',
-                    animationDelay: `${i * 60}ms`,
-                    flexShrink: 0,
-                  }}
-                >
-                  {chip}
-                </span>
-              ))
-            : chips.map((chip, i) => (
-                <ActiveChip key={i} label={chip.label} onRemove={chip.onRemove} />
-              ))
-          }
+          {chips.map((chip, i) => (
+            <ActiveChip key={i} label={chip.label} onRemove={chip.onRemove} />
+          ))}
         </div>
       )}
 
