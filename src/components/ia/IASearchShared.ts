@@ -1,20 +1,22 @@
-// Shared IA search loader logic — used by desktop (ResultsHeader) and mobile (MobileSearchModal)
+// Shared IA search loader logic — única fuente de verdad para todos los puntos de
+// entrada que muestran el loader de búsqueda (home desktop/mobile, resultados desktop/mobile).
+// El loader es intencionalmente genérico: no debe repetirse aquí ningún criterio
+// específico del usuario (comuna, tipo de propiedad, dormitorios, precio, etc).
 
 export const LOADING_STEPS = [
-  'Interpretando búsqueda…',
-  'Detectando filtros relevantes…',
-  'Buscando propiedades compatibles…',
-  'Ordenando resultados…',
-  'Actualizando resultados…',
+  'Interpretando tu búsqueda...',
+  'Buscando propiedades que coincidan con tu criterio...',
+  'Ordenando resultados relevantes...',
+  'Preparando tu lista de propiedades...',
 ];
 
 // Step transition timestamps (ms from search start)
-export const STEP_TIMESTAMPS = [0, 2000, 4000, 6000, 8000];
+export const STEP_TIMESTAMPS = [0, 2000, 4000, 6000];
 // Total duration before closing
-export const SEARCH_TOTAL_MS = 9000;
-// Step at which chips become visible
-export const CHIPS_VISIBLE_AT_STEP = 1;
+export const SEARCH_TOTAL_MS = 8000;
 
+// extractChipsSEO se usa únicamente para el preview de interpretación que se muestra
+// ANTES de buscar (mientras el usuario escribe), no dentro del loader.
 const ZONES_MAP: Record<string, string> = {
   'ñuñoa': 'Ñuñoa', 'providencia': 'Providencia', 'las condes': 'Las Condes',
   'vitacura': 'Vitacura', 'santiago centro': 'Santiago Centro', 'santiago': 'Santiago',
