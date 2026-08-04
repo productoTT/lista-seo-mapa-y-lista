@@ -1,9 +1,12 @@
+import { useRef } from 'react';
 import type { Property, SortOption } from '../../types/property';
 import type { SplitLayout } from '../ui/TweaksPanel';
 import { MapView } from '../MapView/MapView';
 import { PropertyResultCard } from './PropertyResultCard';
 import { Paginator } from '../seo/Paginator';
 import { MapPinCard } from '../seo/MapPinCard';
+import { MapPreviewOverlay } from '../preview/MapPreviewOverlay';
+import type { PropertyPreviewController } from '../preview/usePropertyPreview';
 import { ContextualBanner, insertBanners } from './ContextualBanner';
 
 interface DividedViewProps {
@@ -11,14 +14,17 @@ interface DividedViewProps {
   sort: SortOption;
   onSortChange: (s: SortOption) => void;
   hoveredId: string | null;
-  selectedId: string | null;
   savedProperties: Set<string>;
   onSelect: (id: string) => void;
+  onQuote?: (id: string) => void;
+  onViewMore?: (id: string) => void;
   onSave: (id: string) => void;
   onHover: (id: string | null) => void;
-  onPinSelect: (id: string | null) => void;
+  onMarkerClick: (id: string) => void;
   onViewFull: (id: string) => void;
+  onSelectSimilar: (id: string) => void;
   splitLayout: SplitLayout;
+  preview: PropertyPreviewController;
 }
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
@@ -30,10 +36,20 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 export function DividedView({
-  properties, sort, onSortChange, hoveredId, selectedId, savedProperties,
-  onSelect, onSave, onHover, onPinSelect, onViewFull, splitLayout,
+  properties, sort, onSortChange, hoveredId, savedProperties,
+  onSelect, onQuote, onViewMore, onSave, onHover, onMarkerClick, onViewFull, onSelectSimilar, splitLayout, preview,
 }: DividedViewProps) {
+  const selectedId = preview.propertyId;
   const selectedProperty = selectedId ? properties.find(p => p.id === selectedId) ?? null : null;
+
+  // Hover-intent: mantiene la mini-card visible al pasar el mouse del pin a la card (delay antes de ocultar)
+  const hideTimer = useRef<number | null>(null);
+  const handleMarkerHover = (id: string | null) => {
+    if (hideTimer.current !== null) { window.clearTimeout(hideTimer.current); hideTimer.current = null; }
+    if (id) onHover(id);
+    else hideTimer.current = window.setTimeout(() => onHover(null), 180);
+  };
+  const hoverCardProperty = hoveredId && hoveredId !== selectedId ? properties.find(p => p.id === hoveredId) ?? null : null;
 
   const is3col = splitLayout === '3col';
   const leftColStyle = is3col
@@ -90,7 +106,9 @@ export function DividedView({
                 layout="vertical"
                 isHighlighted={hoveredId === p.id || selectedId === p.id}
                 isSaved={savedProperties.has(p.id)}
-                onSelect={id => { onSelect(id); onPinSelect(id); }}
+                onSelect={onSelect}
+                onQuote={onQuote}
+                onViewMore={onViewMore}
                 onSave={onSave}
                 onHoverEnter={onHover}
                 onHoverLeave={() => onHover(null)}
@@ -115,8 +133,8 @@ export function DividedView({
           properties={properties}
           hoveredId={hoveredId}
           selectedId={selectedId}
-          onMarkerClick={id => onPinSelect(selectedId === id ? null : id)}
-          onHoverMarker={onHover}
+          onMarkerClick={onMarkerClick}
+          onHoverMarker={handleMarkerHover}
         />
 
         {/* Count badge */}
@@ -129,13 +147,26 @@ export function DividedView({
           {properties.length} en área
         </div>
 
-        {selectedProperty && (
-          <MapPinCard
-            property={selectedProperty}
-            onClose={() => onPinSelect(null)}
-            onViewFull={onViewFull}
-          />
+        {/* Mini-card al pasar el mouse sobre un pin — clic en ella (o en el pin) abre la ficha resumida */}
+        {hoverCardProperty && (
+          <div onMouseEnter={() => handleMarkerHover(hoverCardProperty.id)} onMouseLeave={() => handleMarkerHover(null)}>
+            <MapPinCard
+              property={hoverCardProperty}
+              onClose={() => onHover(null)}
+              onViewFull={onMarkerClick}
+            />
+          </div>
         )}
+
+        <MapPreviewOverlay
+          property={selectedProperty}
+          controller={preview}
+          isSaved={selectedProperty ? savedProperties.has(selectedProperty.id) : false}
+          onSave={onSave}
+          onViewFull={onViewFull}
+          allProperties={properties}
+          onSelectSimilar={onSelectSimilar}
+        />
       </div>
     </div>
   );

@@ -43,6 +43,9 @@ export interface Property {
   isNewProject: boolean;
   description: string;
   imageUrl: string;
+  images?: string[];
+  parkingSpots?: number;
+  storageUnits?: number;
   listedAt: number;
   relevanceScore: number;
 }

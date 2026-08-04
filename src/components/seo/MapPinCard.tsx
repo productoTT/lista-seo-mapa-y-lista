@@ -23,14 +23,15 @@ export function MapPinCard({ property, onClose, onViewFull }: MapPinCardProps) {
       onClick={e => e.stopPropagation()}
     >
       <div
-        className="rounded-2xl overflow-hidden"
+        onClick={() => onViewFull(id)}
+        className="rounded-2xl overflow-hidden cursor-pointer"
         style={{ background: '#fff', boxShadow: '0 8px 32px rgba(34,17,96,0.18)' }}
       >
         {/* Image */}
         <div className="relative" style={{ height: 120 }}>
           <img src={imageUrl} alt={address} className="w-full h-full object-cover" />
           <button
-            onClick={onClose}
+            onClick={e => { e.stopPropagation(); onClose(); }}
             className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md transition-opacity hover:opacity-80"
             style={{ background: '#fff' }}
           >

@@ -8,8 +8,11 @@ interface ListViewProps {
   sort: SortOption;
   onSortChange: (s: SortOption) => void;
   hoveredId: string | null;
+  selectedId?: string | null;
   savedProperties: Set<string>;
   onSelect: (id: string) => void;
+  onQuote?: (id: string) => void;
+  onViewMore?: (id: string) => void;
   onSave: (id: string) => void;
   onHoverCard: (id: string | null) => void;
 }
@@ -23,7 +26,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 export function ListView({
-  properties, sort, onSortChange, hoveredId, savedProperties, onSelect, onSave, onHoverCard,
+  properties, sort, onSortChange, hoveredId, selectedId, savedProperties, onSelect, onQuote, onViewMore, onSave, onHoverCard,
 }: ListViewProps) {
   const items = insertBanners(properties);
 
@@ -60,9 +63,11 @@ export function ListView({
                 key={p.id}
                 property={p}
                 layout="vertical"
-                isHighlighted={hoveredId === p.id}
+                isHighlighted={hoveredId === p.id || selectedId === p.id}
                 isSaved={savedProperties.has(p.id)}
                 onSelect={onSelect}
+                onQuote={onQuote}
+                onViewMore={onViewMore}
                 onSave={onSave}
                 onHoverEnter={id => onHoverCard(id)}
                 onHoverLeave={() => onHoverCard(null)}

@@ -17,6 +17,10 @@ import { FiltersModal } from '../modals/FiltersModal';
 import { FiltersDrawer } from '../modals/FiltersDrawer';
 import { TweaksPanel } from '../ui/TweaksPanel';
 import type { FilterPresentation, SplitLayout } from '../ui/TweaksPanel';
+import { usePropertyPreview } from '../preview/usePropertyPreview';
+import { PreviewDrawer } from '../preview/PreviewDrawer';
+import { PreviewModal } from '../preview/PreviewModal';
+import { PreviewTweaksPanel } from '../preview/PreviewTweaksPanel';
 
 function useIsMobile() {
   const [mobile, setMobile] = useState(() => window.innerWidth < 768);
@@ -58,7 +62,6 @@ export function ResultsScreen({
   onViewFullProperty, onContact, sort, onSortChange,
   advancedFilters, onAdvancedFiltersChange,
 }: ResultsScreenProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showSemanticSearch, setShowSemanticSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -75,13 +78,37 @@ export function ResultsScreen({
     if (isMobile && viewMode === 'dividida') onViewChange('mapa');
   }, [isMobile]);
 
+  // ── Ficha resumida de propiedad (sin salir de Lista/Mapa) ──
+  const preview = usePropertyPreview(properties.map(p => p.id));
+  const previewProperty = preview.propertyId ? properties.find(p => p.id === preview.propertyId) ?? null : null;
+  const isSavedPreview = previewProperty ? savedProperties.has(previewProperty.id) : false;
 
-  const handleCardSelect = (id: string) => {
+  const openFromCard = (id: string) => {
     const idx = properties.findIndex(p => p.id === id);
     if (idx >= 0) setMobileActiveIndex(idx);
-    setSelectedId(id);
-    onViewFullProperty(id);
+    preview.open(id, 'card');
   };
+  const openFromViewMore = (id: string) => preview.open(id, 'ver-mas');
+  const openFromQuote = (id: string) => preview.open(id, 'card', { stage: 'contact' });
+  const openFromMarker = (id: string) => {
+    if (preview.propertyId === id) preview.close();
+    else preview.open(id, 'marker');
+  };
+  const selectSimilar = (id: string) => preview.open(id, 'card');
+
+  // Cuando la selección viene de un marcador, lleva la vista al card correspondiente sin saltos bruscos
+  useEffect(() => {
+    if (preview.origin === 'marker' && preview.propertyId && effectiveView === 'dividida') {
+      document.getElementById(`prop-card-${preview.propertyId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [preview.propertyId, preview.origin, effectiveView]);
+
+  const mapVariantActive = preview.variant === 'map-panel' || preview.variant === 'map-replace';
+  const mapIsVisible = effectiveView === 'mapa' || effectiveView === 'dividida';
+  // Si la variante elegida vive "sobre el mapa" pero no hay mapa en pantalla (vista lista),
+  // se recurre al drawer para que la ficha nunca desaparezca silenciosamente.
+  const showRootDrawer = !!previewProperty && (preview.variant === 'drawer' || (mapVariantActive && !mapIsVisible));
+  const showRootModal = !!previewProperty && preview.variant === 'modal';
 
   // ── Mobile: render experiencia de mapa + bottom sheet ──
   if (isMobile) {
@@ -130,7 +157,7 @@ export function ResultsScreen({
       {/* Search bar + filters + view selector */}
       <ResultsHeader
         viewMode={viewMode}
-        onViewChange={v => { onViewChange(v); setSelectedId(null); }}
+        onViewChange={v => { onViewChange(v); preview.close(); }}
         filters={filters}
         onFiltersChange={onFiltersChange}
         query={query}
@@ -153,8 +180,11 @@ export function ResultsScreen({
             sort={sort}
             onSortChange={onSortChange}
             hoveredId={hoveredId}
+            selectedId={preview.propertyId}
             savedProperties={savedProperties}
-            onSelect={handleCardSelect}
+            onSelect={openFromCard}
+            onQuote={openFromQuote}
+            onViewMore={openFromViewMore}
             onSave={onSaveProperty}
             onHoverCard={setHoveredId}
           />
@@ -164,14 +194,17 @@ export function ResultsScreen({
           <MapViewMode
             properties={properties}
             hoveredId={hoveredId}
-            selectedId={selectedId}
-            onSelectProperty={id => setSelectedId(id)}
             onHover={setHoveredId}
             onViewList={() => onViewChange('lista')}
             onViewSplit={() => onViewChange('dividida')}
             savedSearch={savedSearch}
             onSaveSearch={onSaveSearch}
-            onViewFull={onViewFullProperty}
+            preview={preview}
+            savedProperties={savedProperties}
+            onSaveProperty={onSaveProperty}
+            onViewFullProperty={onViewFullProperty}
+            onMarkerClick={openFromMarker}
+            onSelectSimilar={selectSimilar}
           />
         )}
 
@@ -182,14 +215,17 @@ export function ResultsScreen({
             sort={sort}
             onSortChange={onSortChange}
             hoveredId={hoveredId}
-            selectedId={selectedId}
             savedProperties={savedProperties}
-            onSelect={onViewFullProperty}
+            onSelect={openFromCard}
+            onQuote={openFromQuote}
+            onViewMore={openFromViewMore}
             onSave={onSaveProperty}
             onHover={setHoveredId}
-            onPinSelect={id => setSelectedId(id)}
+            onMarkerClick={openFromMarker}
             onViewFull={onViewFullProperty}
+            onSelectSimilar={selectSimilar}
             splitLayout={splitLayout}
+            preview={preview}
           />
           </div>
         )}
@@ -201,7 +237,8 @@ export function ResultsScreen({
             activeIndex={mobileActiveIndex}
             onChangeIndex={i => {
               setMobileActiveIndex(i);
-              setSelectedId(properties[i]?.id ?? null);
+              const id = properties[i]?.id;
+              if (id) preview.open(id, 'card'); else preview.close();
             }}
             onContact={onContact}
             onViewFull={onViewFullProperty}
@@ -252,6 +289,32 @@ export function ResultsScreen({
         splitLayout={splitLayout}
         onSplitLayoutChange={setSplitLayout}
       />
+
+      {/* Ficha resumida de propiedad — drawer/modal viven a nivel de página; panel-sobre-mapa vive dentro de cada vista de mapa */}
+      {showRootDrawer && previewProperty && (
+        <PreviewDrawer
+          property={previewProperty}
+          controller={preview}
+          isSaved={isSavedPreview}
+          onSave={onSaveProperty}
+          onViewFull={onViewFullProperty}
+          allProperties={properties}
+          onSelectSimilar={selectSimilar}
+        />
+      )}
+      {showRootModal && previewProperty && (
+        <PreviewModal
+          property={previewProperty}
+          controller={preview}
+          isSaved={isSavedPreview}
+          onSave={onSaveProperty}
+          onViewFull={onViewFullProperty}
+          allProperties={properties}
+          onSelectSimilar={selectSimilar}
+        />
+      )}
+
+      <PreviewTweaksPanel controller={preview} properties={properties} />
     </div>
   );
 }
