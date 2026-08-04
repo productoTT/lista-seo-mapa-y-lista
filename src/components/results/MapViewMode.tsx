@@ -1,26 +1,42 @@
+import { useRef } from 'react';
 import { List, Columns2, Bookmark, BookmarkCheck } from 'lucide-react';
 import type { Property } from '../../types/property';
 import { MapView } from '../MapView/MapView';
 import { MapPinCard } from '../seo/MapPinCard';
+import { MapPreviewOverlay } from '../preview/MapPreviewOverlay';
+import type { PropertyPreviewController } from '../preview/usePropertyPreview';
 
 interface MapViewModeProps {
   properties: Property[];
   hoveredId: string | null;
-  selectedId: string | null;
-  onSelectProperty: (id: string) => void;
   onHover: (id: string | null) => void;
   onViewList: () => void;
   onViewSplit: () => void;
   savedSearch: boolean;
   onSaveSearch: () => void;
-  onViewFull?: (id: string) => void;
+  preview: PropertyPreviewController;
+  savedProperties: Set<string>;
+  onSaveProperty: (id: string) => void;
+  onViewFullProperty: (id: string) => void;
+  onMarkerClick: (id: string) => void;
+  onSelectSimilar: (id: string) => void;
 }
 
 export function MapViewMode({
-  properties, hoveredId, selectedId, onSelectProperty, onHover,
-  onViewList, onViewSplit, savedSearch, onSaveSearch, onViewFull,
+  properties, hoveredId, onHover, onViewList, onViewSplit, savedSearch, onSaveSearch,
+  preview, savedProperties, onSaveProperty, onViewFullProperty, onMarkerClick, onSelectSimilar,
 }: MapViewModeProps) {
+  const selectedId = preview.propertyId;
   const selectedProperty = selectedId ? properties.find(p => p.id === selectedId) ?? null : null;
+
+  // Hover-intent: mantiene la mini-card visible al pasar el mouse del pin a la card (delay antes de ocultar)
+  const hideTimer = useRef<number | null>(null);
+  const handleMarkerHover = (id: string | null) => {
+    if (hideTimer.current !== null) { window.clearTimeout(hideTimer.current); hideTimer.current = null; }
+    if (id) onHover(id);
+    else hideTimer.current = window.setTimeout(() => onHover(null), 180);
+  };
+  const hoverCardProperty = hoveredId && hoveredId !== selectedId ? properties.find(p => p.id === hoveredId) ?? null : null;
 
   return (
     // Outer: seo-container margins so map aligns with the rest of the page
@@ -34,8 +50,8 @@ export function MapViewMode({
         properties={properties}
         hoveredId={hoveredId}
         selectedId={selectedId}
-        onMarkerClick={id => onSelectProperty(selectedId === id ? '' : id)}
-        onHoverMarker={onHover}
+        onMarkerClick={onMarkerClick}
+        onHoverMarker={handleMarkerHover}
       />
 
       {/* Counter */}
@@ -89,14 +105,27 @@ export function MapViewMode({
         </div>
       )}
 
-      {/* Mini-card on pin select */}
-      {selectedProperty && onViewFull && (
-        <MapPinCard
-          property={selectedProperty}
-          onClose={() => onSelectProperty('')}
-          onViewFull={onViewFull}
-        />
+      {/* Mini-card al pasar el mouse sobre un pin — clic en ella (o en el pin) abre la ficha resumida */}
+      {hoverCardProperty && (
+        <div onMouseEnter={() => handleMarkerHover(hoverCardProperty.id)} onMouseLeave={() => handleMarkerHover(null)}>
+          <MapPinCard
+            property={hoverCardProperty}
+            onClose={() => onHover(null)}
+            onViewFull={onMarkerClick}
+          />
+        </div>
       )}
+
+      {/* Ficha resumida sobre el mapa (variantes "panel sobre mapa" / "reemplaza el mapa") */}
+      <MapPreviewOverlay
+        property={selectedProperty}
+        controller={preview}
+        isSaved={selectedProperty ? savedProperties.has(selectedProperty.id) : false}
+        onSave={onSaveProperty}
+        onViewFull={onViewFullProperty}
+        allProperties={properties}
+        onSelectSimilar={onSelectSimilar}
+      />
       </div>
     </div>
   );

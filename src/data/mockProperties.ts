@@ -87,6 +87,29 @@ export const mockProperties: Property[] = [
   prop('40','Departamento en arriendo',520000,'Av. José Arrieta 4300, Depto 12','Peñalolén',-33.4860,-70.5640,1,1,40,'departamento',['opportunity'],7,6,81,'arriendo','organic',false,'Departamento económico bien equipado. Ideal para quienes buscan tranquilidad lejos del ruido del centro.'),
 ];
 
+// ── Galerías, estacionamiento/bodega y casos borde para la ficha resumida ──
+mockProperties.forEach((p, i) => {
+  const start = parseInt(p.id) % images.length;
+  const count = 3 + (parseInt(p.id) % 3); // 3 a 5 fotos por propiedad
+  p.images = Array.from({ length: count }, (_, k) => images[(start + k) % images.length]);
+  if (p.type !== 'oficina' && i % 3 !== 2) p.parkingSpots = 1 + (parseInt(p.id) % 2);
+  if (p.bedrooms >= 3) p.storageUnits = 1;
+});
+
+// Propiedad con muchas fotografías (para el estado "galería expandida")
+const manyPhotos = mockProperties.find(p => p.id === '5');
+if (manyPhotos) {
+  manyPhotos.images = Array.from({ length: 10 }, (_, k) => images[k % images.length]);
+}
+
+// Propiedad con características y descripción incompletas (estado borde)
+const incomplete = mockProperties.find(p => p.id === '21');
+if (incomplete) {
+  incomplete.description = '';
+  incomplete.storageUnits = undefined;
+  incomplete.parkingSpots = undefined;
+}
+
 export const zones_list = ['Ñuñoa', 'Providencia', 'Las Condes', 'Vitacura', 'Santiago Centro', 'Miraflores', 'La Florida', 'Peñalolén', 'La Reina'];
 
 export function formatPrice(price: number): string {

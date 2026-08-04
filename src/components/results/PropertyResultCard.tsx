@@ -77,12 +77,14 @@ interface PropertyResultCardProps {
   onHoverEnter?: (id: string) => void;
   onHoverLeave?: () => void;
   layout?: 'vertical' | 'horizontal';
+  onQuote?: (id: string) => void;
+  onViewMore?: (id: string) => void;
 }
 
 // ── Card vertical (lista grid) ────────────────────────────
 
 function VerticalCard({
-  property, isHighlighted, isSaved, onSelect, onSave, onHoverEnter, onHoverLeave,
+  property, isHighlighted, isSaved, onSelect, onSave, onHoverEnter, onHoverLeave, onQuote, onViewMore,
 }: PropertyResultCardProps) {
   const [hover, setHover] = useState(false);
   const { id, title, zone, bedrooms, bathrooms, sqm } = property;
@@ -91,6 +93,7 @@ function VerticalCard({
 
   return (
     <div
+      id={`prop-card-${id}`}
       onClick={() => onSelect(id)}
       onMouseEnter={() => { setHover(true); onHoverEnter?.(id); }}
       onMouseLeave={() => { setHover(false); onHoverLeave?.(); }}
@@ -190,7 +193,7 @@ function VerticalCard({
         {/* Actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
           <button
-            onClick={e => { e.stopPropagation(); onSelect(id); }}
+            onClick={e => { e.stopPropagation(); (onQuote ?? onSelect)(id); }}
             style={{
               width: '100%',
               background: INDIGO, color: '#fff',
@@ -208,7 +211,7 @@ function VerticalCard({
             <Phone size={13} /> Cotizar
           </button>
           <button
-            onClick={e => { e.stopPropagation(); onSelect(id); }}
+            onClick={e => { e.stopPropagation(); (onViewMore ?? onSelect)(id); }}
             style={{
               width: '100%',
               background: SURFACE, color: INDIGO,
@@ -235,7 +238,7 @@ function VerticalCard({
 // ── Card horizontal (dividida) ────────────────────────────
 
 function HorizontalCard({
-  property, isHighlighted, isSaved, onSelect, onSave, onHoverEnter, onHoverLeave,
+  property, isHighlighted, isSaved, onSelect, onSave, onHoverEnter, onHoverLeave, onQuote, onViewMore,
 }: PropertyResultCardProps) {
   const [hover, setHover] = useState(false);
   const { id, title, zone, bedrooms, bathrooms, sqm } = property;
@@ -244,6 +247,7 @@ function HorizontalCard({
 
   return (
     <div
+      id={`prop-card-${id}`}
       onClick={() => onSelect(id)}
       onMouseEnter={() => { setHover(true); onHoverEnter?.(id); }}
       onMouseLeave={() => { setHover(false); onHoverLeave?.(); }}
@@ -320,7 +324,7 @@ function HorizontalCard({
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
             <button
-              onClick={e => { e.stopPropagation(); onSelect(id); }}
+              onClick={e => { e.stopPropagation(); (onQuote ?? onSelect)(id); }}
               style={{
                 flex: 1, background: INDIGO, color: '#fff',
                 border: 0, borderRadius: 4, padding: '7px 8px',
@@ -333,7 +337,7 @@ function HorizontalCard({
               Cotizar
             </button>
             <button
-              onClick={e => { e.stopPropagation(); onSelect(id); }}
+              onClick={e => { e.stopPropagation(); (onViewMore ?? onSelect)(id); }}
               style={{
                 flex: 1,
                 background: SURFACE, color: INDIGO,
