@@ -1,28 +1,46 @@
 import { useState } from 'react';
 import { X, ArrowRight } from 'lucide-react';
 import type { Filters, AdvancedFilters } from '../../types/property';
-import { BARRIOS, SQM_PRESETS } from './filterPresets';
+import { SQM_PRESETS } from './filterPresets';
+import { ufToClp } from '../../data/uf';
+import { activeCriteria, removalPatch, splitPatch } from '../../search/criteria';
 
-const INDIGO = '#3200C1';
-const INDIGO_50 = '#EAF2FC';
-const FG1 = '#343A40';
-const FG3 = '#666666';
-const DIVIDER = '#E5E5E5';
+// Tokens del sistema de diseño (mismo valor que los colores anteriores; ver src/styles/ds-tokens/README.md)
+const INDIGO = 'var(--tt-indigo)';
+const INDIGO_50 = 'var(--tt-indigo-50)';
+const FG1 = 'var(--tt-ink)';
+const FG3 = 'var(--tt-ink-3)';
+const DIVIDER = 'var(--tt-divider)';
 
+// Rangos de precio actuales (se conservan). Los montos en pesos se calculan con la UF ficticia única del prototipo.
+const PRICE_RANGES_UF = [
+  { minUF: 0, maxUF: 3500 },
+  { minUF: 3501, maxUF: 5000 },
+  { minUF: 5001, maxUF: 8500 },
+  { minUF: 8501, maxUF: 25000 },
+];
+const clp = (uf: number) => `$${ufToClp(uf).toLocaleString('es-CL')}`;
+const ufl = (uf: number) => `UF ${uf.toLocaleString('es-CL')}`;
 const PRICE_PRESETS: Record<'UF' | 'CLP', { label: string; minUF: number; maxUF: number }[]> = {
-  UF: [
-    { label: 'Hasta UF 3.500', minUF: 0, maxUF: 3500 },
-    { label: 'UF 3.501 a UF 5.000', minUF: 3501, maxUF: 5000 },
-    { label: 'UF 5.001 a UF 8.500', minUF: 5001, maxUF: 8500 },
-    { label: 'Más de UF 8.500', minUF: 8501, maxUF: 25000 },
-  ],
-  CLP: [
-    { label: 'Hasta $146.236.040', minUF: 0, maxUF: 3500 },
-    { label: '$146.236.041 a $219.354.060', minUF: 3501, maxUF: 5000 },
-    { label: '$219.354.061 a $365.590.100', minUF: 5001, maxUF: 8500 },
-    { label: 'Más de $365.590.101', minUF: 8501, maxUF: 25000 },
-  ],
+  UF: PRICE_RANGES_UF.map((r, i) => ({
+    ...r,
+    label: i === 0 ? `Hasta ${ufl(r.maxUF)}` : i === PRICE_RANGES_UF.length - 1 ? `Más de ${ufl(r.minUF - 1)}` : `${ufl(r.minUF)} a ${ufl(r.maxUF)}`,
+  })),
+  CLP: PRICE_RANGES_UF.map((r, i) => ({
+    ...r,
+    label: i === 0 ? `Hasta ${clp(r.maxUF)}` : i === PRICE_RANGES_UF.length - 1 ? `Más de ${clp(r.minUF - 1)}` : `${clp(r.minUF)} a ${clp(r.maxUF)}`,
+  })),
 };
+
+// Dormitorios: Studio = solo estudios; "n+" = n o más.
+const BEDROOM_OPTIONS: { label: string; val: number | null }[] = [
+  { label: 'Cualquiera', val: null },
+  { label: 'Studio', val: 0 },
+  { label: '1+', val: 1 },
+  { label: '2+', val: 2 },
+  { label: '3+', val: 3 },
+  { label: '4+', val: 4 },
+];
 
 // ── Shared mini components ────────────────────────────────
 
@@ -37,6 +55,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function QuickBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
+      type="button"
+      aria-pressed={active}
       onClick={onClick}
       style={{
         padding: '6px 14px',
@@ -56,9 +76,16 @@ function QuickBtn({ active, onClick, children }: { active: boolean; onClick: () 
 }
 
 function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  // Casilla nativa (accesible por teclado y lector de pantalla) con la misma apariencia de antes.
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }} onClick={onChange}>
-      <div style={{
+    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', position: 'relative' }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        style={{ position: 'absolute', opacity: 0, width: 18, height: 18, margin: 0, cursor: 'pointer' }}
+      />
+      <div aria-hidden="true" style={{
         width: 18, height: 18, borderRadius: 4, flexShrink: 0,
         border: `2px solid ${checked ? INDIGO : '#C4C4C4'}`,
         background: checked ? INDIGO : '#fff',
@@ -90,6 +117,7 @@ export function RangeInputs({
         value={fromVal}
         onChange={e => onFromChange(e.target.value)}
         placeholder={placeholder ? `${placeholder} mín.` : 'Desde'}
+        aria-label={placeholder ? `${placeholder} desde` : 'Desde'}
         style={{ flex: 1, minWidth: 0, height: 34, padding: '0 8px', border: `1px solid ${DIVIDER}`, borderRadius: 4, fontSize: 12, outline: 'none', fontFamily: 'inherit', color: FG1, background: '#FAFAFA' }}
       />
       <span style={{ fontSize: 12, color: FG3, flexShrink: 0 }}>–</span>
@@ -98,11 +126,14 @@ export function RangeInputs({
         value={toVal}
         onChange={e => onToChange(e.target.value)}
         placeholder="Hasta"
+        aria-label={placeholder ? `${placeholder} hasta` : 'Hasta'}
         style={{ flex: 1, minWidth: 0, height: 34, padding: '0 8px', border: `1px solid ${DIVIDER}`, borderRadius: 4, fontSize: 12, outline: 'none', fontFamily: 'inherit', color: FG1, background: '#FAFAFA' }}
       />
       <button
+        type="button"
         onClick={onApply}
         title="Aplicar rango"
+        aria-label="Aplicar rango"
         style={{ width: 34, height: 34, background: INDIGO, color: '#fff', border: 0, borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
       >
         <ArrowRight size={14} />
@@ -123,8 +154,6 @@ export interface AdvancedFiltersContentProps {
 export function AdvancedFiltersContent({
   filters, onFiltersChange, advancedFilters, onAdvancedFiltersChange,
 }: AdvancedFiltersContentProps) {
-  const [bedFrom, setBedFrom] = useState('');
-  const [bedTo, setBedTo] = useState('');
   const [bathFrom, setBathFrom] = useState('');
   const [bathTo, setBathTo] = useState('');
   const [priceFrom, setPriceFrom] = useState('');
@@ -142,18 +171,19 @@ export function AdvancedFiltersContent({
     p => advancedFilters.sqmMin === p.min && advancedFilters.sqmMax === p.max
   );
 
-  // All active chips (shown at top of panel)
-  const allChips: { label: string; onRemove: () => void }[] = [];
-  advancedFilters.status.forEach(s =>
-    allChips.push({ label: s === 'nueva' ? 'Nueva' : 'Usada', onRemove: () => onAdvancedFiltersChange({ status: advancedFilters.status.filter(x => x !== s) }) })
-  );
-  if (advancedFilters.barrio) allChips.push({ label: advancedFilters.barrio, onRemove: () => onAdvancedFiltersChange({ barrio: '' }) });
-  if (filters.bedrooms !== null) allChips.push({ label: filters.bedrooms === 0 ? 'Studio' : `${filters.bedrooms} dorm.`, onRemove: () => onFiltersChange({ bedrooms: null }) });
-  if (advancedFilters.bathroomsMin !== null) allChips.push({ label: `${advancedFilters.bathroomsMin}+ baños`, onRemove: () => onAdvancedFiltersChange({ bathroomsMin: null, bathroomsMax: null }) });
-  if (filters.priceMaxUF < 25000) allChips.push({ label: `Hasta UF ${filters.priceMaxUF.toLocaleString('es-CL')}`, onRemove: () => onFiltersChange({ priceMinUF: 0, priceMaxUF: 25000 }) });
-  if (advancedFilters.sqmMin !== null || advancedFilters.sqmMax !== null) allChips.push({ label: `${advancedFilters.sqmMin ?? 0}–${advancedFilters.sqmMax && advancedFilters.sqmMax < 9999 ? advancedFilters.sqmMax : '∞'} m²`, onRemove: () => onAdvancedFiltersChange({ sqmMin: null, sqmMax: null }) });
-  if (advancedFilters.tourVirtual) allChips.push({ label: 'Tour virtual', onRemove: () => onAdvancedFiltersChange({ tourVirtual: false }) });
-  if (advancedFilters.video) allChips.push({ label: 'Video', onRemove: () => onAdvancedFiltersChange({ video: false }) });
+  // Chips del panel: lo que vive en "Más filtros" (sin operación, tipo ni comunas). Fuente única: search/criteria.
+  const criteria = { ...filters, ...advancedFilters };
+  const allChips = activeCriteria(criteria)
+    .filter(c => c.key !== 'operation' && c.key !== 'propertyType' && !c.key.startsWith('comuna:'))
+    .map(c => ({
+      key: c.key,
+      label: c.label,
+      onRemove: () => {
+        const { filters: f, advanced: a } = splitPatch(removalPatch(criteria, c.key));
+        if (Object.keys(f).length) onFiltersChange(f);
+        if (Object.keys(a).length) onAdvancedFiltersChange(a);
+      },
+    }));
 
   const sec: React.CSSProperties = { padding: '16px 0' };
   const hr: React.CSSProperties = { border: 'none', borderTop: `1px solid ${DIVIDER}`, margin: 0 };
@@ -166,10 +196,10 @@ export function AdvancedFiltersContent({
           <div style={sec}>
             <SectionTitle>Filtros aplicados</SectionTitle>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {allChips.map((chip, i) => (
-                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: INDIGO_50, color: INDIGO, border: `1px solid #C7D8FF`, borderRadius: 4, fontSize: 12, fontWeight: 600 }}>
+              {allChips.map(chip => (
+                <span key={chip.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: INDIGO_50, color: INDIGO, border: `1px solid #C7D8FF`, borderRadius: 4, fontSize: 12, fontWeight: 600 }}>
                   {chip.label}
-                  <button onClick={chip.onRemove} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                  <button type="button" onClick={chip.onRemove} aria-label={`Quitar ${chip.label}`} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 0, display: 'flex' }}>
                     <X size={10} color={INDIGO} />
                   </button>
                 </span>
@@ -204,43 +234,22 @@ export function AdvancedFiltersContent({
       </div>
       <hr style={hr} />
 
-      {/* C. Barrio */}
-      <div style={sec}>
-        <SectionTitle>Barrio</SectionTitle>
-        <select
-          value={advancedFilters.barrio}
-          onChange={e => onAdvancedFiltersChange({ barrio: e.target.value })}
-          style={{ width: '100%', height: 36, padding: '0 10px', border: `1px solid ${DIVIDER}`, borderRadius: 4, fontSize: 13, outline: 'none', cursor: 'pointer', color: advancedFilters.barrio ? FG1 : FG3, background: '#fff', fontFamily: 'inherit' }}
-        >
-          <option value="">Barrio</option>
-          {BARRIOS.map(b => <option key={b} value={b}>{b}</option>)}
-        </select>
-      </div>
-      <hr style={hr} />
+      {/* Barrio: oculto en esta rama (no hay datos de barrio). */}
 
       {/* D. Dormitorios */}
       <div style={sec}>
         <SectionTitle>Dormitorios</SectionTitle>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {[{ label: 'Studio', val: 0 }, { label: '1', val: 1 }, { label: '2', val: 2 }, { label: '3', val: 3 }, { label: '4+', val: 4 }].map(({ label, val }) => (
+          {BEDROOM_OPTIONS.map(({ label, val }) => (
             <QuickBtn
-              key={val}
+              key={label}
               active={filters.bedrooms === val}
-              onClick={() => onFiltersChange({ bedrooms: filters.bedrooms === val ? null : val })}
+              onClick={() => onFiltersChange({ bedrooms: val })}
             >
               {label}
             </QuickBtn>
           ))}
         </div>
-        <RangeInputs
-          fromVal={bedFrom} toVal={bedTo}
-          onFromChange={setBedFrom} onToChange={setBedTo}
-          onApply={() => {
-            const from = parseInt(bedFrom);
-            if (!isNaN(from)) onFiltersChange({ bedrooms: from });
-            setBedFrom(''); setBedTo('');
-          }}
-        />
       </div>
       <hr style={hr} />
 
@@ -252,7 +261,7 @@ export function AdvancedFiltersContent({
             <QuickBtn
               key={n}
               active={advancedFilters.bathroomsMin === n}
-              onClick={() => onAdvancedFiltersChange({ bathroomsMin: advancedFilters.bathroomsMin === n ? null : n })}
+              onClick={() => onAdvancedFiltersChange({ bathroomsMin: advancedFilters.bathroomsMin === n ? null : n, bathroomsMax: null })}
             >
               {n === 4 ? '4+' : n}
             </QuickBtn>
@@ -351,24 +360,8 @@ export function AdvancedFiltersContent({
           }}
         />
       </div>
-      <hr style={hr} />
 
-      {/* H. Multimedia */}
-      <div style={sec}>
-        <SectionTitle>Multimedia</SectionTitle>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Checkbox
-            checked={advancedFilters.tourVirtual}
-            onChange={() => onAdvancedFiltersChange({ tourVirtual: !advancedFilters.tourVirtual })}
-            label="Tour virtual"
-          />
-          <Checkbox
-            checked={advancedFilters.video}
-            onChange={() => onAdvancedFiltersChange({ video: !advancedFilters.video })}
-            label="Video"
-          />
-        </div>
-      </div>
+      {/* Multimedia (tour virtual, video): oculto en esta rama (no hay datos). */}
     </div>
   );
 }

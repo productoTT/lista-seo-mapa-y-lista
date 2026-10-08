@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { X, Heart, HeartOff, Bed, Bath, Maximize2, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Property } from '../../types/property';
 import { formatPriceUF, formatRent } from '../../data/mockProperties';
+import { bedroomsText } from '../../data/propertyFacts';
 
 const INDIGO = '#3200C1';
 const PINK = '#F05C89';
@@ -147,9 +148,9 @@ export function MobileMapCard({ properties, savedProperties, onClose, onSave, on
 
           {/* Specs + arrow */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#666' }}>
-            {p.bedrooms > 0 && (
+            {bedroomsText(p) && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Bed size={10} />{p.bedrooms}
+                <Bed size={10} />{bedroomsText(p)}
               </span>
             )}
             <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>

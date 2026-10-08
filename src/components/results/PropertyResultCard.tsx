@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Bed, Bath, Maximize2, Heart, HeartOff, Phone, Eye } from 'lucide-react';
 import type { Property } from '../../types/property';
 import { formatPriceUF } from '../../data/mockProperties';
+import { bedroomsText } from '../../data/propertyFacts';
 
 // ── DS tokens ─────────────────────────────────────────────
 const INDIGO = '#3200C1';
@@ -87,7 +88,7 @@ function VerticalCard({
   property, isHighlighted, isSaved, onSelect, onSave, onHoverEnter, onHoverLeave, onQuote, onViewMore,
 }: PropertyResultCardProps) {
   const [hover, setHover] = useState(false);
-  const { id, title, zone, bedrooms, bathrooms, sqm } = property;
+  const { id, title, zone, bathrooms, sqm } = property;
   const flag = getFlagInfo(property);
   const active = isHighlighted || hover;
 
@@ -162,9 +163,9 @@ function VerticalCard({
           borderTop: `1px solid ${DIVIDER}`,
           borderBottom: `1px solid ${DIVIDER}`,
         }}>
-          {bedrooms > 0 && (
+          {bedroomsText(property) && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: FG1 }}>
-              <IconBed /> {bedrooms}
+              <IconBed /> {bedroomsText(property)}
             </span>
           )}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: FG1 }}>
@@ -241,7 +242,7 @@ function HorizontalCard({
   property, isHighlighted, isSaved, onSelect, onSave, onHoverEnter, onHoverLeave, onQuote, onViewMore,
 }: PropertyResultCardProps) {
   const [hover, setHover] = useState(false);
-  const { id, title, zone, bedrooms, bathrooms, sqm } = property;
+  const { id, title, zone, bathrooms, sqm } = property;
   const flag = getFlagInfo(property);
   const active = isHighlighted || hover;
 
@@ -296,9 +297,9 @@ function HorizontalCard({
 
           {/* Specs inline */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-            {bedrooms > 0 && (
+            {bedroomsText(property) && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: FG1 }}>
-                <Bed size={11} color={INDIGO} /> {bedrooms}
+                <Bed size={11} color={INDIGO} /> {bedroomsText(property)}
               </span>
             )}
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: FG1 }}>

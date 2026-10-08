@@ -1,0 +1,30 @@
+/* ============================================================
+   TOCTOC Design System — Semantic aliases
+   ------------------------------------------------------------
+   Foreground / background aliases that map primitive colors
+   to functional roles. Import after colors.css.
+   ============================================================ */
+
+:root {
+
+  /* ----- Foreground ----- */
+  --fg-1:                var(--tt-ink);
+  --fg-2:                var(--tt-ink-2);
+  --fg-3:                var(--tt-ink-3);
+  --fg-on-indigo:        var(--tt-white);
+  --fg-on-mint:          var(--tt-indigo);
+
+  /* ----- Background ----- */
+  --bg-app:              var(--tt-bg);
+  --bg-surface:          var(--tt-surface);
+  --bg-strip:            var(--tt-surface-alt);
+  --bg-indigo:           var(--tt-indigo);
+  --bg-indigo-tint:      var(--tt-indigo-50);
+
+  /* ----- Accent aliases ----- */
+  /* @note --accent maps to --tt-indigo (primary brand color), NOT to --tt-acento (the pink accent).
+     Avoid using --accent in new work to prevent confusion; prefer --tt-indigo directly. */
+  --accent:              var(--tt-indigo);
+  /* @deprecated Use --tt-cian directly. --accent-cta resolves through the --tt-mint alias. */
+  --accent-cta:          var(--tt-mint);
+}

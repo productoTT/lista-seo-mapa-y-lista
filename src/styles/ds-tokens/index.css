@@ -1,0 +1,20 @@
+/* ============================================================
+   Tokens del sistema de diseño TOCTOC — copia local
+   ------------------------------------------------------------
+   Origen: sistema-diseño-test/shared/foundations/tokens/
+   Versión: baseline 2026-06-24 (docs/changelog.md), copiada el 2026-10-08.
+   Los módulos se copian SIN modificar. Ver README.md de esta carpeta.
+
+   Se omite typography.css a propósito: declara @font-face de Nunito
+   con rutas locales y el proyecto ya carga Nunito desde Google Fonts.
+   Estos archivos solo declaran variables en :root; no estilan elementos.
+   ============================================================ */
+
+@import "./colors.css";
+@import "./semantic.css";
+@import "./spacing.css";
+@import "./radii.css";
+@import "./borders.css";
+@import "./shadows.css";
+@import "./motion.css";
+@import "./layout.css";

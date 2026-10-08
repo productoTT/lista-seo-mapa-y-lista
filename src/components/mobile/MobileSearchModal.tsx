@@ -4,7 +4,8 @@ import type { Filters, AdvancedFilters, OperationType, PropertyType } from '../.
 import { DEFAULT_FILTERS, PROPERTY_TYPE_LABELS } from '../../types/property';
 import { zones_list } from '../../data/mockProperties';
 import { RangeInputs } from '../modals/AdvancedFiltersContent';
-import { BARRIOS, SQM_PRESETS } from '../modals/filterPresets';
+import { SQM_PRESETS } from '../modals/filterPresets';
+import { UF_CLP } from '../../data/uf';
 import {
   STEP_TIMESTAMPS,
   SEARCH_TOTAL_MS,
@@ -12,11 +13,10 @@ import {
 } from '../ia/IASearchShared';
 import { IALoadingCard } from '../ia/IALoadingCard';
 
-const UF_TO_CLP = 38000;
-
-const INDIGO = '#3200C1';
-const INDIGO_50 = '#EAF2FC';
-const FG1 = '#343A40';
+// Tokens del sistema de diseño (mismo valor que los colores anteriores)
+const INDIGO = 'var(--tt-indigo)';
+const INDIGO_50 = 'var(--tt-indigo-50)';
+const FG1 = 'var(--tt-ink)';
 
 export type SearchTab = 'classic' | 'ai';
 
@@ -374,12 +374,13 @@ const PROP_TYPES: { value: PropertyType | null; label: string }[] = [
   ...PROP_TYPES_ORDER.map(t => ({ value: t as PropertyType | null, label: PROPERTY_TYPE_LABELS[t] })),
 ];
 
+// Dormitorios: Studio = solo estudios; "n+" = n o más.
 const BEDROOMS_OPTIONS: { value: number | null; label: string }[] = [
-  { value: null, label: 'Todos' },
-  { value: 0, label: 'Estudio' },
-  { value: 1, label: '1' },
-  { value: 2, label: '2' },
-  { value: 3, label: '3' },
+  { value: null, label: 'Cualquiera' },
+  { value: 0, label: 'Studio' },
+  { value: 1, label: '1+' },
+  { value: 2, label: '2+' },
+  { value: 3, label: '3+' },
   { value: 4, label: '4+' },
 ];
 
@@ -404,7 +405,7 @@ function priceRangeLabel(min: number, max: number, currency: 'UF' | 'CLP'): stri
       ? `UF ${min.toLocaleString('es-CL')} o más`
       : `UF ${min.toLocaleString('es-CL')} - UF ${max.toLocaleString('es-CL')}`;
   }
-  const minClp = min * UF_TO_CLP, maxClp = max * UF_TO_CLP;
+  const minClp = min * UF_CLP, maxClp = max * UF_CLP;
   return isLast
     ? `$${minClp.toLocaleString('es-CL')} o más`
     : `$${minClp.toLocaleString('es-CL')} - $${maxClp.toLocaleString('es-CL')}`;
@@ -424,6 +425,8 @@ function ChipRow<T>({ options, current, onSelect }: {
       {options.map(o => (
         <button
           key={String(o.value)}
+          type="button"
+          aria-pressed={current === o.value}
           onClick={() => onSelect(o.value)}
           style={{
             padding: '7px 14px', borderRadius: 20,
@@ -442,39 +445,8 @@ function ChipRow<T>({ options, current, onSelect }: {
   );
 }
 
-function MobileCheckbox({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
-  return (
-    <button
-      onClick={onChange}
-      aria-pressed={checked}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        border: 'none', background: 'transparent', padding: '6px 0',
-        cursor: 'pointer', fontFamily: 'inherit', minHeight: 44, textAlign: 'left',
-      }}
-    >
-      <div style={{
-        width: 20, height: 20, borderRadius: 5, flexShrink: 0,
-        border: `2px solid ${checked ? INDIGO : '#C4C4C4'}`,
-        background: checked ? INDIGO : '#fff',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.12s',
-      }}>
-        {checked && (
-          <svg width="11" height="9" viewBox="0 0 10 8" fill="none">
-            <path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </div>
-      <span style={{ fontSize: 14, color: FG1, fontWeight: 600 }}>{label}</span>
-    </button>
-  );
-}
-
 function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdvanced, onSearch }: ClassicTabProps) {
   const [expanded, setExpanded] = useState(false);
-  const [bedFrom, setBedFrom] = useState('');
-  const [bedTo, setBedTo] = useState('');
   const [bathFrom, setBathFrom] = useState('');
   const [bathTo, setBathTo] = useState('');
   const [priceFrom, setPriceFrom] = useState('');
@@ -496,13 +468,10 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
 
   const advancedActiveCount = [
     localAdvanced.status.length > 0,
-    !!localAdvanced.barrio,
     localFilters.bedrooms !== null,
     localAdvanced.bathroomsMin !== null || localAdvanced.bathroomsMax !== null,
     localFilters.priceMinUF > 0 || localFilters.priceMaxUF < DEFAULT_FILTERS.priceMaxUF,
     localAdvanced.sqmMin !== null || localAdvanced.sqmMax !== null,
-    localAdvanced.tourVirtual,
-    localAdvanced.video,
   ].filter(Boolean).length;
 
   const toggleLabel = expanded
@@ -547,7 +516,7 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
             onChange={e => {
               const region = e.target.value;
               setA({ region });
-              if (!region) setF({ zone: '' });
+              if (!region) setF({ comunas: [] });
             }}
             style={{ ...selectStyle, color: localAdvanced.region ? FG1 : '#999' }}
           >
@@ -562,17 +531,19 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
         <Label>Comuna</Label>
         <div style={{ position: 'relative' }}>
           <select
-            value={localFilters.zone}
-            onChange={e => setF({ zone: e.target.value })}
+            value={localFilters.comunas.length === 1 ? localFilters.comunas[0] : localFilters.comunas.length > 1 ? '__varias' : ''}
+            onChange={e => setF({ comunas: e.target.value ? [e.target.value] : [] })}
             disabled={!localAdvanced.region}
             style={{
               ...selectStyle,
-              color: localFilters.zone ? FG1 : '#999',
+              color: localFilters.comunas.length ? FG1 : '#999',
               background: localAdvanced.region ? '#fff' : '#F5F5F5',
               cursor: localAdvanced.region ? 'pointer' : 'not-allowed',
             }}
           >
             <option value="">{localAdvanced.region ? 'Todas las comunas' : 'Selecciona una región primero'}</option>
+            {/* Selección múltiple de comunas en mobile: pendiente de la revisión mobile. Aquí se muestra, pero se reemplaza al elegir una. */}
+            {localFilters.comunas.length > 1 && <option value="__varias" disabled>{localFilters.comunas.length} comunas seleccionadas</option>}
             {localAdvanced.region && zones_list.map(z => <option key={z} value={z}>{z}</option>)}
           </select>
           <ChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#999', pointerEvents: 'none' }} />
@@ -636,20 +607,7 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
               </div>
             </div>
 
-            <div>
-              <Label>Ubicación detallada</Label>
-              <div style={{ position: 'relative' }}>
-                <select
-                  value={localAdvanced.barrio}
-                  onChange={e => setA({ barrio: e.target.value })}
-                  style={{ ...selectStyle, color: localAdvanced.barrio ? FG1 : '#999' }}
-                >
-                  <option value="">Barrio</option>
-                  {BARRIOS.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-                <ChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#999', pointerEvents: 'none' }} />
-              </div>
-            </div>
+            {/* Barrio, tour virtual y video: ocultos en esta rama (no hay datos ni filtrado). */}
 
             <div>
               <Label>Dormitorios</Label>
@@ -657,15 +615,6 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
                 options={BEDROOMS_OPTIONS}
                 current={localFilters.bedrooms}
                 onSelect={v => setF({ bedrooms: v })}
-              />
-              <RangeInputs
-                fromVal={bedFrom} toVal={bedTo}
-                onFromChange={setBedFrom} onToChange={setBedTo}
-                onApply={() => {
-                  const from = parseInt(bedFrom);
-                  setF({ bedrooms: isNaN(from) ? null : from });
-                  setBedFrom(''); setBedTo('');
-                }}
               />
             </div>
 
@@ -776,22 +725,6 @@ function ClassicTab({ localFilters, setLocalFilters, localAdvanced, setLocalAdva
                   setSqmFrom(''); setSqmTo('');
                 }}
               />
-            </div>
-
-            <div>
-              <Label>Multimedia</Label>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <MobileCheckbox
-                  checked={localAdvanced.tourVirtual}
-                  onChange={() => setA({ tourVirtual: !localAdvanced.tourVirtual })}
-                  label="Tour virtual"
-                />
-                <MobileCheckbox
-                  checked={localAdvanced.video}
-                  onChange={() => setA({ video: !localAdvanced.video })}
-                  label="Video"
-                />
-              </div>
             </div>
 
           </div>

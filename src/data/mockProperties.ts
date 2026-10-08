@@ -1,4 +1,5 @@
-import type { Property, CommercialStatus, OperationType } from '../types/property';
+import type { Property, CommercialStatus, OperationType, PropertyFeature } from '../types/property';
+import { clpToUf } from './uf.ts';
 
 const images = [
   'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&q=80',
@@ -32,7 +33,7 @@ function prop(
   const sqmExtra = [12, 18, 22, 15, 30, 10, 25, 20, 16, 28][parseInt(id) % 10];
   return {
     id, title, price,
-    priceUF: Math.round(price / 38000),
+    priceUF: clpToUf(price),
     address, zone, lat, lng,
     bedrooms, bathrooms, sqm,
     sqmTotal: sqm + sqmExtra,
@@ -47,7 +48,7 @@ function prop(
 export const mockProperties: Property[] = [
   prop('1','Departamento en Ñuñoa',85000000,'Av. Irarrázaval 3456, Depto 52','Ñuñoa',-33.4569,-70.5993,2,1,58,'departamento',['new'],0,1,95,'venta','ai_recommended',false,'Departamento luminoso a pasos del metro Irarrázaval. Ideal para jóvenes profesionales que buscan conectividad y barrio.'),
   prop('2','Casa en Ñuñoa',120000000,'Av. Ossa 890, Casa','Ñuñoa',-33.4612,-70.5876,3,2,120,'casa',['price_drop'],1,5,88,'venta','featured',false,'Casa con jardín en barrio residencial tranquilo. Amplio living-comedor y cocina remodelada. Bajó de precio recientemente.'),
-  prop('3','Departamento en arriendo',1200000,'Pedro de Valdivia Norte 234','Ñuñoa',-33.4490,-70.6050,1,1,42,'departamento',[],2,10,72,'arriendo','organic',false,'Studio acogedor a metros de Av. Grecia. Incluye estacionamiento y bodega. Disponible de inmediato.'),
+  prop('3','Departamento en arriendo',1200000,'Pedro de Valdivia Norte 234','Ñuñoa',-33.4490,-70.6050,0,1,42,'departamento',[],2,10,72,'arriendo','organic',false,'Studio acogedor a metros de Av. Grecia. Incluye estacionamiento y bodega. Disponible de inmediato.'),
   prop('4','Casa con patio en Ñuñoa',145000000,'Exequiel Fernández 1200','Ñuñoa',-33.4650,-70.5820,4,2,155,'casa',['opportunity'],3,3,90,'venta','sponsored',false,'Amplia casa con patio trasero de 80m², completamente remodelada el 2023. Barrio con mucho verde y excelente conectividad.'),
   prop('5','Depto con terraza, Ñuñoa',78000000,'Manuel Montt 567, Piso 8','Ñuñoa',-33.4530,-70.6100,2,2,65,'departamento',['new','opportunity'],4,2,93,'venta','ai_recommended',false,'Piso alto con terraza y vistas panorámicas. Edificio moderno con gimnasio. Gran relación precio-superficie.'),
   prop('6','Departamento en Providencia',195000000,'Av. Providencia 2340, Depto 121','Providencia',-33.4320,-70.6180,3,2,95,'departamento',['price_drop'],5,7,85,'venta','featured',false,'Excelente ubicación frente a parque, a dos cuadras del metro Pedro de Valdivia. Terminaciones de primer nivel.'),
@@ -63,7 +64,7 @@ export const mockProperties: Property[] = [
   prop('16','Departamento en Vitacura',380000000,'Vitacura 4200, Depto 81','Vitacura',-33.3950,-70.5900,3,2,130,'departamento',['price_drop'],7,9,77,'venta','featured',false,'Elegante departamento con terminaciones europeas. Cocina de mármol, vestidor y vista al parque Bicentenario.'),
   prop('17','Casa en Vitacura',680000000,'El Vergel 3100','Vitacura',-33.3880,-70.5780,5,4,380,'casa',[],0,45,55,'venta','organic',false,'Casa de arquitecto en sector exclusivo. Espacios de doble altura, materialidad de lujo y jardín curado.'),
   prop('18','Departamento moderno Vitacura',220000000,'Av. Bicentenario 3456, Depto 42','Vitacura',-33.4010,-70.5820,2,2,90,'departamento',['new','opportunity'],1,2,92,'venta','organic',false,'Nuevo departamento en el corazón de Vitacura. Diseño contemporáneo, terraza con parrilla y vista al parque.'),
-  prop('19','Departamento en arriendo',650000,'Av. Libertador O\'Higgins 1234','Santiago Centro',-33.4490,-70.6600,1,1,38,'departamento',[],2,12,68,'arriendo','organic',false,'Studio en pleno centro con acceso directo al metro. Ideal para ejecutivos o estudiantes que buscan ubicación.'),
+  prop('19','Departamento en arriendo',650000,'Av. Libertador O\'Higgins 1234','Santiago Centro',-33.4490,-70.6600,0,1,38,'departamento',[],2,12,68,'arriendo','organic',false,'Studio en pleno centro con acceso directo al metro. Ideal para ejecutivos o estudiantes que buscan ubicación.'),
   prop('20','Proyecto inversión Santiago',72000000,'Monjitas 567, Depto 1203','Santiago Centro',-33.4380,-70.6520,2,1,50,'departamento',['new'],3,1,89,'venta','ai_recommended',true,'Proyecto de inversión en zona de alta demanda. Ideal para renta, cerca de universidades y oficinas corporativas.'),
   prop('21','Oficina Santiago Centro',48000000,'Catedral 890, Oficina 34','Santiago Centro',-33.4350,-70.6580,0,1,32,'oficina',['price_drop'],4,18,62,'venta','organic',false,'Oficina en edificio corporativo remodelado. Acceso 24 horas, sala de reuniones compartida y buena conectividad.'),
   prop('22','Departamento céntrico',95000000,'Merced 1100, Piso 12','Santiago Centro',-33.4420,-70.6490,3,2,78,'departamento',[],5,22,71,'venta','organic',false,'Departamento espacioso en edificio histórico. Pisos de madera, techos altos y mucha luz natural en todos los ambientes.'),
@@ -109,6 +110,71 @@ if (incomplete) {
   incomplete.storageUnits = undefined;
   incomplete.parkingSpots = undefined;
 }
+
+// ── Metro y características (ficticios) ──
+// metro: minutos caminando a la estación más cercana. Sin valor = dato desconocido.
+// extras: características declaradas en la publicación. Sin valor = dato desconocido.
+// Estacionamiento y bodega también se derivan de parkingSpots/storageUnits para que coincidan con la ficha.
+const ATTRS: Record<string, { metro?: number; extras?: PropertyFeature[] }> = {
+  '1': { metro: 3, extras: [] },
+  '2': { metro: 12, extras: ['patio', 'mascotas'] },
+  '3': { metro: 6, extras: ['estacionamiento', 'bodega'] }, // la descripción los menciona
+  '4': { metro: 15, extras: ['patio', 'mascotas'] },
+  '5': { metro: 8, extras: ['terraza'] },
+  '6': { metro: 4, extras: [] },
+  '7': { metro: 14, extras: ['patio'] },
+  '8': { metro: 9, extras: ['mascotas'] },
+  '9': { metro: 18, extras: ['patio'] },
+  '10': { metro: 7, extras: [] },
+  '11': { metro: 6, extras: ['terraza'] },
+  '12': { metro: 10, extras: ['patio', 'mascotas'] },
+  '13': { metro: 9, extras: ['terraza'] },
+  '14': { metro: 11, extras: [] },
+  '15': { extras: ['patio', 'mascotas'] },          // metro desconocido
+  '16': { metro: 20, extras: ['terraza'] },
+  '17': { extras: ['patio'] },                      // metro desconocido
+  '18': { metro: 16, extras: ['terraza', 'mascotas'] },
+  '19': { metro: 1, extras: [] },
+  '20': { metro: 5, extras: [] },
+  '21': { metro: 4 },                               // características desconocidas (caso borde de la ficha)
+  '22': { metro: 6, extras: [] },
+  '23': { metro: 4, extras: ['bodega'] },
+  '24': { metro: 5, extras: [] },
+  '25': { metro: 7, extras: ['patio'] },
+  '26': { metro: 25, extras: [] },
+  '27': { metro: 13, extras: ['patio', 'mascotas'] },
+  '28': { metro: 22, extras: ['patio'] },
+  '29': { metro: 17, extras: [] },
+  '30': { metro: 19, extras: ['patio'] },
+  '31': { metro: 4, extras: [] },
+  '32': { metro: 6, extras: ['terraza'] },
+  '33': { metro: 9, extras: [] },
+  '34': { metro: 12, extras: ['terraza'] },
+  '35': { metro: 6, extras: [] },
+  '36': { metro: 8, extras: [] },
+  '37': { metro: 11, extras: ['mascotas'] },
+  '38': { metro: 5, extras: ['terraza', 'mascotas'] },
+  '39': { extras: ['patio'] },                      // metro desconocido
+  '40': { metro: 14, extras: ['mascotas'] },
+};
+
+// Estudios declarados (su descripción dice "Studio").
+['3', '19'].forEach(id => { const p = mockProperties.find(x => x.id === id); if (p) p.isStudio = true; });
+
+mockProperties.forEach(p => {
+  const a = ATTRS[p.id];
+  if (!a) return;
+  p.metroWalkMin = a.metro;
+  if (a.extras) {
+    // La ficha muestra estacionamiento/bodega desde parkingSpots/storageUnits: se mantienen coherentes en ambos sentidos.
+    if (a.extras.includes('estacionamiento') && !p.parkingSpots) p.parkingSpots = 1;
+    if (a.extras.includes('bodega') && !p.storageUnits) p.storageUnits = 1;
+    const derived: PropertyFeature[] = [];
+    if ((p.parkingSpots ?? 0) > 0) derived.push('estacionamiento');
+    if ((p.storageUnits ?? 0) > 0) derived.push('bodega');
+    p.features = [...new Set([...a.extras, ...derived])];
+  }
+});
 
 export const zones_list = ['Ñuñoa', 'Providencia', 'Las Condes', 'Vitacura', 'Santiago Centro', 'Miraflores', 'La Florida', 'Peñalolén', 'La Reina'];
 

@@ -4,6 +4,7 @@ import { Search, Sparkles, ChevronDown, Key, TrendingUp, Building2 } from 'lucid
 import { ToctocFullHeader } from '../seo/ToctocFullHeader';
 import type { Filters, OperationType, PropertyType } from '../../types/property';
 import { LOADING_STEPS, STEP_TIMESTAMPS, SEARCH_TOTAL_MS } from '../ia/IASearchShared';
+import { canonicalComuna } from '../../search/criteria';
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
 
   // Traditional search state
   const [operation, setOperation] = useState<OperationType>('venta');
-  const [propertyType, setPropertyType] = useState<PropertyType | ''>('departamento');
+  const [propertyType, setPropertyType] = useState<PropertyType | 'todos'>('departamento');
   const [commune, setCommune] = useState('');
   const [communeSuggestions, setCommuneSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -128,9 +129,11 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
   }
 
   function handleTraditionalSearch() {
-    const partial: Partial<Filters> = { operation };
-    if (propertyType) partial.propertyType = propertyType as PropertyType;
-    if (commune) partial.zone = commune;
+    const partial: Partial<Filters> = {
+      operation,
+      propertyType: propertyType === 'todos' ? null : propertyType,
+      comunas: commune.trim() ? [canonicalComuna(commune, COMMUNES)] : [],
+    };
     onClassicSearch(partial);
   }
 
@@ -287,8 +290,9 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
                       { value: 'departamento', label: 'Departamento' },
                       { value: 'casa', label: 'Casa' },
                       { value: 'oficina', label: 'Oficina' },
+                      { value: 'todos', label: 'Todos los tipos' },
                     ]}
-                    onChange={v => setPropertyType(v as PropertyType)}
+                    onChange={v => setPropertyType(v as PropertyType | 'todos')}
                   />
                 </div>
 

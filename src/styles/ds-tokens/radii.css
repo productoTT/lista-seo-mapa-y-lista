@@ -1,0 +1,14 @@
+/* ============================================================
+   TOCTOC Design System — Border radii
+   ------------------------------------------------------------
+   Only 4px (buttons/chips/inputs) and 10px (cards/hero) are
+   used with significant frequency in the Figma file.
+   ============================================================ */
+
+:root {
+  --r-2:                 2px;
+  --r-4:                 4px;    /* buttons, chips, small inputs */
+  --r-8:                 8px;    /* nested cards */
+  --r-10:                10px;   /* property cards, hero cards */
+  --r-pill:              999px;
+}

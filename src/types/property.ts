@@ -33,6 +33,8 @@ export interface Property {
   lat: number;
   lng: number;
   bedrooms: number;
+  /** Estudio declarado. "0 dormitorios" no basta: ver data/propertyFacts.ts. */
+  isStudio?: boolean;
   bathrooms: number;
   sqm: number;
   sqmTotal: number;
@@ -46,6 +48,10 @@ export interface Property {
   images?: string[];
   parkingSpots?: number;
   storageUnits?: number;
+  /** Minutos caminando a la estación de metro más cercana. `undefined` = dato desconocido. */
+  metroWalkMin?: number;
+  /** Características declaradas. `undefined` = dato desconocido (no coincide con ningún filtro de características). */
+  features?: PropertyFeature[];
   listedAt: number;
   relevanceScore: number;
 }
@@ -59,13 +65,40 @@ export interface SearchInterpretation {
   maxPrice?: string;
 }
 
+export type PropertyFeature = 'terraza' | 'estacionamiento' | 'mascotas' | 'patio' | 'bodega';
+
+export const PROPERTY_FEATURE_LABELS: Record<PropertyFeature, string> = {
+  terraza: 'Terraza',
+  estacionamiento: 'Estacionamiento',
+  mascotas: 'Acepta mascotas',
+  patio: 'Patio',
+  bodega: 'Bodega',
+};
+
+/** Tope de poder de compra (estimación o pre-evaluación). Se prepara aquí; se activa en un bloque posterior. */
+export interface BudgetCap {
+  valueUF: number;
+  kind: 'estimacion' | 'preevaluacion';
+}
+
 export interface Filters {
   priceMinUF: number;
   priceMaxUF: number;
+  /**
+   * Dormitorios. `null` = cualquiera · `0` = solo estudios · `n ≥ 1` = n o más (excluye estudios).
+   * No aplica a tipos sin dormitorios (oficinas, locales, etc.): esas propiedades no coinciden si hay filtro.
+   */
   bedrooms: number | null;
+  /** `null` = todos los tipos. */
   propertyType: PropertyType | null;
-  zone: string;
+  /** Comunas seleccionadas. Vacío = todas. Entre comunas aplica OR. */
+  comunas: string[];
   operation: OperationType | null;
+  /** Máximo de minutos caminando al metro. */
+  metroMaxMin: number | null;
+  /** Características requeridas: deben cumplirse todas. */
+  features: PropertyFeature[];
+  budgetCap: BudgetCap | null;
 }
 
 export interface MapBounds {
@@ -80,19 +113,25 @@ export const DEFAULT_FILTERS: Filters = {
   priceMaxUF: 25000,
   bedrooms: null,
   propertyType: null,
-  zone: '',
+  comunas: [],
   operation: null,
+  metroMaxMin: null,
+  features: [],
+  budgetCap: null,
 };
 
 export interface AdvancedFilters {
   status: ('nueva' | 'usada')[];
   region: string;
+  /** Oculto en esta rama: no hay datos de barrio. Se conserva el campo para no romper la forma del estado. */
   barrio: string;
   bathroomsMin: number | null;
   bathroomsMax: number | null;
   sqmMin: number | null;
   sqmMax: number | null;
+  /** Oculto en esta rama: no hay datos de tour virtual. */
   tourVirtual: boolean;
+  /** Oculto en esta rama: no hay datos de video. */
   video: boolean;
   priceCurrency: 'UF' | 'CLP';
 }

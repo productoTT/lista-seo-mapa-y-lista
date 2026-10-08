@@ -1,0 +1,13 @@
+/* ============================================================
+   TOCTOC Design System — Layout
+   ------------------------------------------------------------
+   Global structural tokens. These are product-level defaults.
+   --header-h and --secondary-nav-h apply to the TOCTOC product
+   UI — documentation sites may override them locally.
+   ============================================================ */
+
+:root {
+  --container-max:       1260px;  /* content width inside 1440 with 90px gutters */
+  --header-h:            64px;
+  --secondary-nav-h:     58px;
+}

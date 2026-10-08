@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Bed, Bath, Maximize2, Car, Package, Heart, HeartOff, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { Property } from '../../types/property';
 import { formatPriceUF, formatRent } from '../../data/mockProperties';
+import { bedroomsText } from '../../data/propertyFacts';
 import { PropertyGallery } from './PropertyGallery';
 import { PreviewActions } from './PreviewActions';
 import type { PropertyPreviewController } from './usePropertyPreview';
@@ -118,7 +119,9 @@ export function PropertyPreviewContent({
 
       {/* ── Specs ── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: compact ? 10 : 16, padding: `${compact ? 8 : 12}px 0`, borderTop: `1px solid ${DIVIDER}`, borderBottom: `1px solid ${DIVIDER}` }}>
-        {property.bedrooms > 0 && <Spec icon={<Bed size={15} color={INDIGO} />} value={property.bedrooms} label="dorm." />}
+        {property.isStudio
+          ? <Spec icon={<Bed size={15} color={INDIGO} />} value="Studio" label="" />
+          : bedroomsText(property) && <Spec icon={<Bed size={15} color={INDIGO} />} value={property.bedrooms} label="dorm." />}
         {property.bathrooms > 0 && <Spec icon={<Bath size={15} color={INDIGO} />} value={property.bathrooms} label="baños" />}
         <Spec icon={<Maximize2 size={15} color={INDIGO} />} value={`${property.sqm}m²`} label={`útil${!compact ? ` / ${property.sqmTotal}m² tot.` : ''}`} />
         {!!property.parkingSpots && <Spec icon={<Car size={15} color={INDIGO} />} value={property.parkingSpots} label="estac." />}

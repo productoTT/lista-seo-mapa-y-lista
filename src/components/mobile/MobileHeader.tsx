@@ -1,6 +1,7 @@
 import { ArrowLeft, Filter, Search, Sparkles } from 'lucide-react';
 import type { Filters } from '../../types/property';
 import { DEFAULT_FILTERS } from '../../types/property';
+import { comunasPhrase } from '../../search/criteria';
 
 export const MOBILE_HEADER_HEIGHT = 56;
 
@@ -10,7 +11,7 @@ function filtersActive(f: Filters): boolean {
   return (
     f.bedrooms !== null ||
     !!f.propertyType ||
-    !!f.zone ||
+    f.comunas.length > 0 ||
     f.priceMinUF !== DEFAULT_FILTERS.priceMinUF ||
     f.priceMaxUF !== DEFAULT_FILTERS.priceMaxUF
   );
@@ -23,7 +24,7 @@ function searchLabel(f: Filters, query: string): string {
     const map: Record<string, string> = { departamento: 'Departamentos', casa: 'Casas', oficina: 'Oficinas' };
     parts.push(map[f.propertyType] || f.propertyType);
   }
-  if (f.zone) parts.push(f.zone);
+  if (f.comunas.length) parts.push(comunasPhrase(f.comunas));
   if (f.operation) parts.push(f.operation === 'arriendo' ? 'en arriendo' : 'en venta');
   return parts.join(' · ');
 }

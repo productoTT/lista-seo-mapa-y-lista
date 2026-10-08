@@ -1,0 +1,11 @@
+/* ============================================================
+   TOCTOC Design System — Shadows / Elevation
+   ============================================================ */
+
+:root {
+  --shadow-header:       0px 2px 4px 0px rgba(0, 0, 0, 0.05);
+  --shadow-dropdown:     0px 4px 14px 0px rgba(112, 144, 176, 0.10);
+  --shadow-card:         0px 4px 12px 0px rgba(34, 17, 96, 0.06);
+  --shadow-card-hover:   0px 8px 24px 0px rgba(34, 17, 96, 0.10);
+  --shadow-text-protect: 0px 0px 8px rgba(0, 0, 0, 0.65); /* hero overlays */
+}

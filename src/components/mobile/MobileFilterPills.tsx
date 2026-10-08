@@ -1,73 +1,34 @@
 import { X } from 'lucide-react';
 import type { Filters, AdvancedFilters } from '../../types/property';
-import { DEFAULT_FILTERS, PROPERTY_TYPE_LABELS } from '../../types/property';
+import { activeCriteria, removalPatch, splitPatch } from '../../search/criteria';
 
-const INDIGO = '#3200C1';
-const INDIGO_50 = '#EAF2FC';
+// Tokens del sistema de diseño (mismo valor que los colores anteriores)
+const INDIGO = 'var(--tt-indigo)';
+const INDIGO_50 = 'var(--tt-indigo-50)';
 
 interface ActiveFilter {
+  key: string;
   label: string;
   onRemove: () => void;
 }
 
+// Mismas etiquetas y criterios que la cabecera de escritorio (search/criteria). La operación se muestra en el buscador.
 function buildActiveFilters(
   filters: Filters,
   advancedFilters: AdvancedFilters,
   onFiltersChange: (f: Partial<Filters>) => void,
   onAdvancedFiltersChange: (f: Partial<AdvancedFilters>) => void,
 ): ActiveFilter[] {
-  const pills: ActiveFilter[] = [];
-
-  if (filters.propertyType) {
-    const map: Record<string, string> = { departamento: 'Departamentos', casa: 'Casas', oficina: 'Oficinas' };
-    pills.push({
-      label: map[filters.propertyType] || PROPERTY_TYPE_LABELS[filters.propertyType],
-      onRemove: () => onFiltersChange({ propertyType: null }),
-    });
-  }
-
-  if (filters.zone) {
-    pills.push({
-      label: filters.zone,
-      onRemove: () => onFiltersChange({ zone: '' }),
-    });
-  }
-
-  if (filters.bedrooms !== null) {
-    pills.push({
-      label: filters.bedrooms === 0 ? 'Estudio' : `${filters.bedrooms}+ dorm.`,
-      onRemove: () => onFiltersChange({ bedrooms: null }),
-    });
-  }
-
-  if (filters.priceMinUF > DEFAULT_FILTERS.priceMinUF || filters.priceMaxUF < DEFAULT_FILTERS.priceMaxUF) {
-    const min = filters.priceMinUF > 0 ? `UF ${filters.priceMinUF.toLocaleString('es-CL')}` : '';
-    const max = filters.priceMaxUF < DEFAULT_FILTERS.priceMaxUF ? `UF ${filters.priceMaxUF.toLocaleString('es-CL')}` : '';
-    const label = min && max ? `${min} – ${max}` : min ? `Desde ${min}` : `Hasta ${max}`;
-    pills.push({
-      label,
-      onRemove: () => onFiltersChange({ priceMinUF: DEFAULT_FILTERS.priceMinUF, priceMaxUF: DEFAULT_FILTERS.priceMaxUF }),
-    });
-  }
-
-  advancedFilters.status.forEach(s => {
-    pills.push({
-      label: s === 'nueva' ? 'Nueva' : 'Usada',
-      onRemove: () => onAdvancedFiltersChange({ status: advancedFilters.status.filter(x => x !== s) }),
-    });
-  });
-
-  if (advancedFilters.sqmMin !== null || advancedFilters.sqmMax !== null) {
-    const min = advancedFilters.sqmMin ? `${advancedFilters.sqmMin}m²` : '';
-    const max = advancedFilters.sqmMax ? `${advancedFilters.sqmMax}m²` : '';
-    const label = min && max ? `${min}–${max}` : min ? `Desde ${min}` : `Hasta ${max}`;
-    pills.push({
-      label,
-      onRemove: () => onAdvancedFiltersChange({ sqmMin: null, sqmMax: null }),
-    });
-  }
-
-  return pills;
+  const criteria = { ...filters, ...advancedFilters };
+  return activeCriteria(criteria, { exclude: ['operation'] }).map(c => ({
+    key: c.key,
+    label: c.label,
+    onRemove: () => {
+      const { filters: f, advanced: a } = splitPatch(removalPatch(criteria, c.key));
+      if (Object.keys(f).length) onFiltersChange(f);
+      if (Object.keys(a).length) onAdvancedFiltersChange(a);
+    },
+  }));
 }
 
 interface MobileFilterPillsProps {
@@ -101,7 +62,7 @@ export function MobileFilterPills({ filters, advancedFilters, onFiltersChange, o
     >
       {pills.map((pill) => (
         <div
-          key={pill.label}
+          key={pill.key}
           role="listitem"
           style={{
             display: 'flex',
@@ -120,6 +81,7 @@ export function MobileFilterPills({ filters, advancedFilters, onFiltersChange, o
         >
           <span>{pill.label}</span>
           <button
+            type="button"
             onClick={pill.onRemove}
             aria-label={`Quitar filtro ${pill.label}`}
             style={{

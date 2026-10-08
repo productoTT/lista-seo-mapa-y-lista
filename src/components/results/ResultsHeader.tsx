@@ -5,15 +5,16 @@ import {
   List, Map, Columns2, Bookmark, BookmarkCheck,
 } from 'lucide-react';
 import type { Filters, AdvancedFilters, ViewMode, OperationType, PropertyType } from '../../types/property';
-import { PROPERTY_TYPE_LABELS } from '../../types/property';
 import { zones_list } from '../../data/mockProperties';
+import { activeCriteria, propertyTypePlural, removalPatch, splitPatch } from '../../search/criteria';
 
-const INDIGO = '#3200C1';
-const MINT = '#37FFDB';
-const INDIGO_50 = '#EAF2FC';
-const FG1 = '#343A40';
-const FG3 = '#666666';
-const DIVIDER = '#E5E5E5';
+// Tokens del sistema de diseño (mismo valor que los colores anteriores; ver src/styles/ds-tokens/README.md)
+const INDIGO = 'var(--tt-indigo)';
+const MINT = 'var(--tt-cian)';
+const INDIGO_50 = 'var(--tt-indigo-50)';
+const FG1 = 'var(--tt-ink)';
+const FG3 = 'var(--tt-ink-3)';
+const DIVIDER = 'var(--tt-divider)';
 
 import { LOADING_STEPS as LOADING_STEPS_SEO, STEP_TIMESTAMPS, SEARCH_TOTAL_MS } from '../ia/IASearchShared';
 
@@ -82,6 +83,16 @@ function PortalPanel({
   minWidth?: number;
 }) {
   const rect = useAnchoredPanel(triggerRef, open);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); triggerRef.current?.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose, triggerRef]);
+
   if (!open || !rect) return null;
 
   // Decide whether to open downward or upward
@@ -180,6 +191,8 @@ function SaveButton({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 function DropdownItem({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
+      type="button"
+      aria-pressed={active}
       onClick={onClick}
       style={{
         width: '100%', textAlign: 'left',
@@ -215,6 +228,9 @@ function Dropdown({
     <div style={{ position: 'relative', flexShrink: 0 }}>
       <button
         ref={triggerRef}
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
         onClick={() => setOpen(s => !s)}
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
@@ -290,7 +306,9 @@ function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }
     }}>
       {label}
       <button
+        type="button"
         onClick={onRemove}
+        aria-label={`Quitar ${label}`}
         style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
       >
         <X size={11} color={INDIGO} />
@@ -439,41 +457,29 @@ function IaSearchInput({
   );
 }
 
-// ── Commune input (Clásico) — portal suggestions ──────────
+// ── Commune input (Clásico) — varias comunas, entre ellas aplica OR ──
+// Cada selección agrega una comuna; las elegidas aparecen como chips en la fila de criterios.
 
-function CommuneInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function CommuneInput({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(false);
-  const [text, setText] = useState(value);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [text, setText] = useState('');
   const triggerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setText(value); }, [value]);
 
   const filtered = text.trim()
     ? zones_list.filter(z => z.toLowerCase().includes(text.toLowerCase()))
     : zones_list;
 
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        if (!zones_list.includes(text)) setText(value);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [text, value]);
-
-  const handleSelect = (z: string) => {
-    setText(z);
-    onChange(z);
-    setOpen(false);
+  const toggle = (z: string) => {
+    onChange(selected.includes(z) ? selected.filter(x => x !== z) : [...selected, z]);
+    setText('');
   };
 
-  const handleClear = () => { setText(''); onChange(''); };
+  const placeholder = selected.length === 0 ? 'Comuna o ciudad'
+    : selected.length === 1 ? 'Agregar otra comuna'
+    : `${selected.length} comunas · agregar`;
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', flexShrink: 0, width: 190 }}>
+    <div style={{ position: 'relative', flexShrink: 0, width: 190 }}>
       <div
         ref={triggerRef}
         style={{
@@ -486,20 +492,25 @@ function CommuneInput({ value, onChange }: { value: string; onChange: (v: string
           gap: 6,
         }}
       >
-        <Search size={13} color={FG3} style={{ flexShrink: 0 }} />
+        <Search size={13} color={FG3} style={{ flexShrink: 0 }} aria-hidden="true" />
         <input
           type="text"
           value={text}
           onChange={e => { setText(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Comuna o ciudad"
+          onKeyDown={e => {
+            if (e.key === 'Enter' && filtered.length > 0) { e.preventDefault(); toggle(filtered[0]); }
+          }}
+          placeholder={placeholder}
+          aria-label="Agregar comuna"
+          aria-expanded={open}
           style={{
             flex: 1, border: 0, outline: 'none', background: 'transparent',
             fontSize: 13, color: FG1, fontFamily: 'inherit', minWidth: 0,
           }}
         />
         {text && (
-          <button onMouseDown={handleClear} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 0, display: 'flex' }}>
+          <button type="button" aria-label="Borrar texto" onMouseDown={() => setText('')} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: 0, display: 'flex' }}>
             <X size={11} color={FG3} />
           </button>
         )}
@@ -507,12 +518,12 @@ function CommuneInput({ value, onChange }: { value: string; onChange: (v: string
       <PortalPanel
         triggerRef={triggerRef}
         open={open}
-        onClose={() => { setOpen(false); }}
+        onClose={() => { setOpen(false); setText(''); }}
         minWidth={190}
       >
-        <DropdownItem label="Todas las comunas" active={!value} onClick={() => handleSelect('')} />
+        <DropdownItem label="Todas las comunas" active={selected.length === 0} onClick={() => { onChange([]); setText(''); setOpen(false); }} />
         {filtered.slice(0, 12).map(z => (
-          <DropdownItem key={z} label={z} active={value === z} onClick={() => handleSelect(z)} />
+          <DropdownItem key={z} label={z} active={selected.includes(z)} onClick={() => toggle(z)} />
         ))}
       </PortalPanel>
     </div>
@@ -532,56 +543,26 @@ export function ResultsHeader({
   const [iaLoading, setIaLoading] = useState(false);
   const [iaLoadingStep, setIaLoadingStep] = useState(0);
 
-  // Chips computation — basic filters
-  const chips: { label: string; onRemove: () => void }[] = [];
-  if (filters.zone) chips.push({ label: filters.zone, onRemove: () => onFiltersChange({ zone: '' }) });
-  if (filters.propertyType) chips.push({
-    label: filters.propertyType === 'departamento' ? 'Departamentos'
-      : filters.propertyType === 'casa' ? 'Casas'
-      : filters.propertyType === 'oficina' ? 'Oficinas'
-      : PROPERTY_TYPE_LABELS[filters.propertyType],
-    onRemove: () => onFiltersChange({ propertyType: null }),
-  });
-  if (filters.bedrooms !== null) chips.push({
-    label: filters.bedrooms === 0 ? 'Studio' : `${filters.bedrooms} dorm.`,
-    onRemove: () => onFiltersChange({ bedrooms: null }),
-  });
-  if (filters.priceMaxUF < 25000) chips.push({
-    label: `Hasta UF ${filters.priceMaxUF.toLocaleString('es-CL')}`,
-    onRemove: () => onFiltersChange({ priceMaxUF: 25000 }),
-  });
-  // Advanced filters chips
-  if (advancedFilters && onAdvancedFiltersChange) {
-    advancedFilters.status.forEach(s =>
-      chips.push({ label: s === 'nueva' ? 'Nueva' : 'Usada', onRemove: () => onAdvancedFiltersChange({ status: advancedFilters.status.filter(x => x !== s) }) })
-    );
-    if (advancedFilters.barrio) chips.push({ label: advancedFilters.barrio, onRemove: () => onAdvancedFiltersChange({ barrio: '' }) });
-    if (advancedFilters.bathroomsMin !== null) chips.push({ label: `${advancedFilters.bathroomsMin}+ baños`, onRemove: () => onAdvancedFiltersChange({ bathroomsMin: null, bathroomsMax: null }) });
-    if (advancedFilters.sqmMin !== null || advancedFilters.sqmMax !== null) chips.push({ label: `${advancedFilters.sqmMin ?? 0}–${advancedFilters.sqmMax && advancedFilters.sqmMax < 9999 ? advancedFilters.sqmMax : '∞'} m²`, onRemove: () => onAdvancedFiltersChange({ sqmMin: null, sqmMax: null }) });
-    if (advancedFilters.tourVirtual) chips.push({ label: 'Tour virtual', onRemove: () => onAdvancedFiltersChange({ tourVirtual: false }) });
-    if (advancedFilters.video) chips.push({ label: 'Video', onRemove: () => onAdvancedFiltersChange({ video: false }) });
-  }
+  // Chips: una por criterio activo (la operación se muestra en su selector). Fuente única: search/criteria.
+  const criteria = { ...filters, ...(advancedFilters ?? {}) } as Filters & AdvancedFilters;
+  const applyPatch = (patch: ReturnType<typeof removalPatch>) => {
+    const { filters: f, advanced: a } = splitPatch(patch);
+    if (Object.keys(f).length) onFiltersChange(f);
+    if (Object.keys(a).length) onAdvancedFiltersChange?.(a);
+  };
+  const chips = (advancedFilters ? activeCriteria(criteria, { exclude: ['operation'] }) : [])
+    .map(c => ({ label: c.label, onRemove: () => applyPatch(removalPatch(criteria, c.key)) }));
 
-  const activeFilterCount = [
-    filters.priceMaxUF < 25000,
-    filters.bedrooms !== null,
-    (advancedFilters?.status.length ?? 0) > 0,
-    !!advancedFilters?.barrio,
-    advancedFilters?.bathroomsMin !== null,
-    advancedFilters?.sqmMin !== null || advancedFilters?.sqmMax !== null,
-    advancedFilters?.tourVirtual,
-    advancedFilters?.video,
-  ].filter(Boolean).length;
+  // "Más filtros" cuenta lo que vive en el panel (no operación, tipo ni comunas).
+  const activeFilterCount = advancedFilters
+    ? activeCriteria(criteria).filter(c => c.key !== 'operation' && c.key !== 'propertyType' && !c.key.startsWith('comuna:')).length
+    : 0;
   const hasActiveFilters = activeFilterCount > 0;
 
   const opLabel = filters.operation === 'arriendo' ? 'Arrendar'
     : filters.operation === 'venta' ? 'Comprar'
     : 'Operación';
-  const typeLabel = filters.propertyType === 'departamento' ? 'Departamentos'
-    : filters.propertyType === 'casa' ? 'Casas'
-    : filters.propertyType === 'oficina' ? 'Oficinas'
-    : filters.propertyType ? PROPERTY_TYPE_LABELS[filters.propertyType]
-    : 'Tipo propiedad';
+  const typeLabel = propertyTypePlural(filters.propertyType);
 
   const handleIaSearch = (q: string) => {
     const text = q.trim();
@@ -672,8 +653,8 @@ export function ResultsHeader({
         ) : (
           <>
             <CommuneInput
-              value={filters.zone}
-              onChange={z => onFiltersChange({ zone: z })}
+              selected={filters.comunas}
+              onChange={comunas => onFiltersChange({ comunas })}
             />
 
             <Dropdown label={opLabel} active={filters.operation !== null} minWidth={160}>
@@ -690,6 +671,11 @@ export function ResultsHeader({
             </Dropdown>
 
             <Dropdown label={typeLabel} active={filters.propertyType !== null} minWidth={160}>
+              <DropdownItem
+                label="Todos los tipos"
+                active={filters.propertyType === null}
+                onClick={() => onFiltersChange({ propertyType: null })}
+              />
               {(['departamento', 'casa', 'oficina'] as PropertyType[]).map(t => (
                 <DropdownItem
                   key={t}

@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { Screen, ViewMode, SearchInterpretation, Filters, AdvancedFilters, SortOption } from './types/property';
-import { DEFAULT_FILTERS, DEFAULT_ADVANCED_FILTERS } from './types/property';
+import type { Screen, ViewMode, SearchInterpretation, Filters, SortOption } from './types/property';
 import { mockProperties } from './data/mockProperties';
+import { filterProperties } from './search/criteria';
+import { useSearchState } from './search/useSearchState';
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ResultsScreen } from './components/results/ResultsScreen';
 import { PropertyFullScreen } from './components/screens/PropertyFullScreen';
@@ -55,7 +56,8 @@ function applyInterpretation(interp: SearchInterpretation): Partial<Filters> {
   if (interp.propertyType === 'Departamento') f.propertyType = 'departamento';
   else if (interp.propertyType === 'Casa') f.propertyType = 'casa';
   else if (interp.propertyType === 'Oficina') f.propertyType = 'oficina';
-  if (interp.zone) f.zone = interp.zone;
+  if (interp.zone) f.comunas = [interp.zone];
+  // "2 dormitorios" se interpreta como 2 o más (mismo criterio que los filtros).
   if (interp.bedrooms) { const m = interp.bedrooms.match(/(\d)/); if (m) f.bedrooms = parseInt(m[1]); }
   if (interp.maxPrice) { const m = interp.maxPrice.replace(/\./g, '').match(/(\d+)/); if (m) f.priceMaxUF = parseInt(m[1]); }
   return f;
@@ -77,10 +79,10 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('lista');
   const [query, setQuery] = useState('');
   const [interpretation, setInterpretation] = useState<SearchInterpretation | null>(null);
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const search = useSearchState();
+  const { criteria, update: updateCriteria, reset: resetCriteria } = search;
   const [sort, setSort] = useState<SortOption>('relevant');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
-  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(DEFAULT_ADVANCED_FILTERS);
   const [savedSearch, setSavedSearch] = useState(false);
   const [savedProperties, setSavedProperties] = useState<Set<string>>(new Set());
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
@@ -93,28 +95,22 @@ export default function App() {
     const interp = parseQuery(q);
     setQuery(q);
     setInterpretation(interp);
-    setFilters(f => ({ ...f, ...applyInterpretation(interp) }));
+    // Flujo IA heredado (se reemplaza en el bloque del asistente): aplica directo, con origen "asistente".
+    updateCriteria(applyInterpretation(interp), 'asistente');
     setScreen('results');
-  }, []);
+  }, [updateCriteria]);
 
   const startClassicSearch = useCallback((partial: Partial<Filters>) => {
-    setFilters(f => ({ ...f, ...partial }));
+    updateCriteria(partial, 'usuario');
     setInterpretation(null);
     setQuery('');
     setScreen('results');
-  }, []);
+  }, [updateCriteria]);
 
-  const filteredProperties = useMemo(() => {
-    let result = mockProperties.filter(p => {
-      if (p.priceUF < filters.priceMinUF || p.priceUF > filters.priceMaxUF) return false;
-      if (filters.bedrooms !== null && p.bedrooms !== filters.bedrooms) return false;
-      if (filters.propertyType && p.type !== filters.propertyType) return false;
-      if (filters.zone && p.zone !== filters.zone) return false;
-      if (filters.operation && p.operation !== filters.operation) return false;
-      return true;
-    });
-    return sortProps(result, sort);
-  }, [filters, sort]);
+  const filteredProperties = useMemo(
+    () => sortProps(filterProperties(mockProperties, criteria), sort),
+    [criteria, sort],
+  );
 
   const selectedProperty = selectedPropertyId ? mockProperties.find(p => p.id === selectedPropertyId) ?? null : null;
 
@@ -152,8 +148,8 @@ export default function App() {
         properties={filteredProperties}
         viewMode={viewMode}
         onViewChange={setViewMode}
-        filters={filters}
-        onFiltersChange={partial => setFilters(f => ({ ...f, ...partial }))}
+        filters={criteria}
+        onFiltersChange={search.updateFilters}
         interpretation={interpretation}
         query={query}
         savedSearch={savedSearch}
@@ -173,9 +169,9 @@ export default function App() {
             return next;
           });
         }}
-        advancedFilters={advancedFilters}
-        onAdvancedFiltersChange={partial => setAdvancedFilters(f => ({ ...f, ...partial }))}
-        onGoHome={() => { setScreen('home'); setFilters(DEFAULT_FILTERS); setAdvancedFilters(DEFAULT_ADVANCED_FILTERS); setViewMode('lista'); }}
+        advancedFilters={criteria}
+        onAdvancedFiltersChange={search.updateAdvanced}
+        onGoHome={() => { setScreen('home'); resetCriteria(); setViewMode('lista'); }}
         onSearch={startSearch}
         onViewFullProperty={id => { setSelectedPropertyId(id); setScreen('property-full'); }}
         onContact={() => showSnack('Mensaje enviado. El anunciante te contactará pronto.')}

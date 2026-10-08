@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Map, ChevronUp } from 'lucide-react';
 import type { Property, SortOption, Filters, AdvancedFilters, SearchInterpretation } from '../../types/property';
+import { comunasPhrase } from '../../search/criteria';
 import { DEFAULT_ADVANCED_FILTERS } from '../../types/property';
 import { PropertyResultCard } from '../results/PropertyResultCard';
 import { ContextualBanner, insertBanners } from '../results/ContextualBanner';
@@ -55,7 +56,7 @@ function buildResultTitle(filters: Filters, interpretation: SearchInterpretation
       type = map[filters.propertyType] || '';
     }
     operation = filters.operation === 'arriendo' ? 'Arriendo' : 'Venta';
-    zone = filters.zone;
+    zone = comunasPhrase(filters.comunas);
   }
 
   const parts: string[] = [];

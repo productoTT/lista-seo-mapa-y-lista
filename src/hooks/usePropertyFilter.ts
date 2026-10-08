@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Filters, MapBounds, Property, SortOption } from '../types/property';
 import { DEFAULT_FILTERS } from '../types/property';
 import { mockProperties } from '../data/mockProperties';
+import { DEFAULT_CRITERIA, matchesCriteria } from '../search/criteria';
 
 function sortProperties(props: Property[], sort: SortOption): Property[] {
   const arr = [...props];
@@ -20,12 +21,9 @@ export function usePropertyFilter() {
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
 
   const filtered = useMemo(() => {
-    let result = mockProperties.filter(p => {
-      if (p.priceUF < filters.priceMinUF || p.priceUF > filters.priceMaxUF) return false;
-      if (filters.bedrooms !== null && p.bedrooms !== filters.bedrooms) return false;
-      if (filters.propertyType && p.type !== filters.propertyType) return false;
-      if (filters.zone && p.zone !== filters.zone) return false;
-      if (filters.operation && p.operation !== filters.operation) return false;
+    // Mismas reglas que la búsqueda compartida (search/criteria).
+    const result = mockProperties.filter(p => {
+      if (!matchesCriteria(p, { ...DEFAULT_CRITERIA, ...filters })) return false;
       if (mapBounds) {
         if (p.lat > mapBounds.north || p.lat < mapBounds.south) return false;
         if (p.lng > mapBounds.east || p.lng < mapBounds.west) return false;

@@ -1,0 +1,11 @@
+/* ============================================================
+   TOCTOC Design System — Borders
+   ------------------------------------------------------------
+   Shorthand border tokens. Import after colors.css so
+   --tt-divider and --tt-surface-alt are already defined.
+   ============================================================ */
+
+:root {
+  --border-line:         1px solid var(--tt-divider);
+  --border-line-soft:    1px solid var(--tt-surface-alt);
+}

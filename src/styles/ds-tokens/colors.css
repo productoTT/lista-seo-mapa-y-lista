@@ -1,0 +1,62 @@
+/* ============================================================
+   TOCTOC Design System — Colors
+   ------------------------------------------------------------
+   Primitive color tokens only. No aliases, no semantic roles.
+   Source of truth: Figma "TT Design MD2" (Base page).
+   ============================================================ */
+
+:root {
+
+  /* ----- Canonical brand tokens (aprobados Jun 2026) ----- */
+  --tt-indigo:           #3200C1;           /* Índigo primario */
+  --tt-indigo-dark:      #230087;           /* Índigo Dark oficial — footer web + hover botones */
+  --tt-cian:             #37FFDB;           /* Cian — nombre oficial (antes: mint) */
+  --tt-acento:           #F05C88;           /* Acento oficial */
+  --tt-celeste:          #E9F0FB;           /* Fondo celeste — background footer email */
+
+  /* ----- Compatibility aliases — do not use in new work ----- */
+  /* --tt-mint was the primary name before Jun 2026. Use --tt-cian in new implementations. */
+  --tt-indigo-darker:    rgb(23, 0, 87);    /* footer body, deep sections */
+  --tt-indigo-deep:      rgb(34, 17, 96);   /* deep ink, illustrations */
+  /* @deprecated Use --tt-cian. Kept for backward compatibility. */
+  --tt-mint:             var(--tt-cian);
+  --tt-mint-dark:        rgb(36, 230, 195); /* cian pressed (Cian Dark oficial: #03DAC6 — pendiente) */
+  /* @deprecated Use --tt-acento. Kept for backward compatibility. */
+  --tt-pink:             var(--tt-acento);
+  --tt-pink-dark:        rgb(64, 28, 62);   /* deep pink ink */
+
+  /* ----- Indigo scale (tints used across UI) ----- */
+  --tt-indigo-50:        rgb(234, 242, 252);
+  --tt-indigo-75:        rgb(215, 233, 255);
+  --tt-indigo-100:       rgb(216, 231, 255);
+  --tt-indigo-150:       rgb(203, 219, 246);
+  --tt-indigo-200:       rgb(178, 208, 255);
+  --tt-indigo-250:       rgb(184, 210, 255);
+  --tt-indigo-300:       rgb(161, 188, 230);
+  --tt-indigo-400:       rgb(133, 147, 229);
+  --tt-indigo-500:       rgb(104, 128, 228);
+  --tt-indigo-600:       rgb(101, 121, 209);
+  --tt-indigo-700:       rgb(50, 0, 193);   /* = --tt-indigo */
+  --tt-indigo-800:       #230087;           /* = --tt-indigo-dark */
+  --tt-indigo-900:       rgb(34, 17, 96);
+
+  /* ----- Neutrals ----- */
+  --tt-white:            rgb(255, 255, 255);
+  --tt-bg:               rgb(249, 249, 249); /* app background */
+  --tt-surface:          rgb(255, 255, 255); /* card surface */
+  --tt-surface-alt:      rgb(244, 244, 244); /* subtle divider/strip */
+  --tt-divider:          rgb(229, 229, 229);
+  --tt-line:             rgb(217, 217, 217);
+  --tt-muted:            rgb(200, 200, 200);
+  --tt-mid:              rgb(177, 177, 177);
+  --tt-ink-3:            rgb(102, 102, 102); /* tertiary text / breadcrumbs */
+  --tt-ink-2:            rgb(57, 61, 66);    /* body */
+  --tt-ink:              rgb(52, 58, 64);    /* primary text */
+  --tt-black:            rgb(38, 50, 56);    /* deep ink panels */
+
+  /* ----- Semantic status colors ----- */
+  --tt-success:          rgb(35, 173, 99);   /* green dot/status */
+  --tt-warning:          rgb(255, 167, 38);  /* warning / featured */
+  --tt-danger:           rgb(244, 67, 54);
+  --tt-info:             var(--tt-indigo);
+}

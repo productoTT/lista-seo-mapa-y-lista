@@ -2,6 +2,7 @@ import { ArrowLeft, Bed, Bath, Maximize2, Phone, Heart } from 'lucide-react';
 import type { Property } from '../../types/property';
 import { CommercialBadge } from '../ui/CommercialBadge';
 import { formatPriceUF, formatRent, mockProperties } from '../../data/mockProperties';
+import { bedroomsText } from '../../data/propertyFacts';
 import { PropertyResultCard } from '../results/PropertyResultCard';
 
 interface PropertyFullScreenProps {
@@ -20,7 +21,7 @@ const EXTRA_IMAGES = [
 ];
 
 export function PropertyFullScreen({ property, savedProperties, onBack, onContact, onSave, onSelectSimilar }: PropertyFullScreenProps) {
-  const { id, title, imageUrl, priceUF, price, address, zone, bedrooms, bathrooms, sqm, sqmTotal, description, commercialStatus, isNewProject, operation } = property;
+  const { id, title, imageUrl, priceUF, price, address, zone, bathrooms, sqm, sqmTotal, description, commercialStatus, isNewProject, operation } = property;
   const priceDisplay = operation === 'arriendo' ? formatRent(price) : formatPriceUF(priceUF);
 
   const similar = mockProperties
@@ -93,12 +94,12 @@ export function PropertyFullScreen({ property, savedProperties, onBack, onContac
           className="grid grid-cols-3 gap-4 p-4 rounded-2xl border"
           style={{ background: '#EAF2FC', borderColor: '#B2D0FF' }}
         >
-          {bedrooms > 0 && (
+          {bedroomsText(property) && (
             <div className="flex items-center gap-3">
               <Bed size={24} style={{ color: '#3200C1' }} />
               <div>
-                <p className="text-xl font-extrabold" style={{ color: '#343A40' }}>{bedrooms}</p>
-                <p className="text-xs" style={{ color: '#666' }}>Dormitorios</p>
+                <p className="text-xl font-extrabold" style={{ color: '#343A40' }}>{bedroomsText(property)}</p>
+                <p className="text-xs" style={{ color: '#666' }}>{property.isStudio ? 'Tipología' : 'Dormitorios'}</p>
               </div>
             </div>
           )}

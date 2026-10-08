@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muestra roles DS</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!-- Copia sin modificar de sistema-diseño-test/shared/foundations/tokens (sin typography.css para no redeclarar @font-face) -->
+<link rel="stylesheet" href="../../../src/styles/ds-tokens/colors.css">
+<link rel="stylesheet" href="../../../src/styles/ds-tokens/semantic.css">
+<link rel="stylesheet" href="../../../src/styles/ds-tokens/spacing.css">
+<link rel="stylesheet" href="../../../src/styles/ds-tokens/radii.css">
+<link rel="stylesheet" href="../../../src/styles/ds-tokens/borders.css">
+<link rel="stylesheet" href="../../../src/styles/ds-tokens/shadows.css">
+<style>
+/* ── Faltantes: propuesta derivada SOLO de tokens existentes (sin hex nuevos). No aprobada. ── */
+:root{
+  --x-warning-soft: color-mix(in srgb, var(--tt-warning) 14%, var(--tt-white));
+  --x-cian-soft:    color-mix(in srgb, var(--tt-cian) 20%, var(--tt-white));
+  --x-success-soft: color-mix(in srgb, var(--tt-success) 12%, var(--tt-white));
+  --x-acento-soft:  color-mix(in srgb, var(--tt-acento) 10%, var(--tt-white));
+}
+body{margin:0;background:var(--bg-app);color:var(--fg-1);font-family:"Nunito",system-ui,sans-serif;font-size:14px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding:var(--sp-24) var(--sp-16) var(--sp-48)}
+h1{font-size:20px;font-weight:800;margin:0 0 4px}
+.lead{color:var(--fg-3);margin:0 0 var(--sp-24)}
+section{background:var(--bg-surface);border:var(--border-line);border-radius:var(--r-10);padding:var(--sp-20);margin-bottom:var(--sp-16)}
+h2{font-size:15px;font-weight:800;margin:0 0 var(--sp-12);display:flex;gap:8px;align-items:center}
+.row{display:flex;flex-wrap:wrap;gap:var(--sp-12);align-items:center}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--sp-16)}
+.tok{display:block;font-size:11px;color:var(--fg-3);margin-top:6px;font-family:ui-monospace,monospace}
+.item{display:flex;flex-direction:column;align-items:flex-start}
+.miss{font-size:10px;font-weight:800;letter-spacing:.04em;background:var(--tt-surface-alt);color:var(--fg-3);border:1px dashed var(--tt-mid);border-radius:var(--r-4);padding:1px 6px;text-transform:uppercase}
+.opt{font-size:11px;font-weight:800;color:var(--fg-3);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
+/* Botones (existentes en el proyecto: indigo r-4 y Buscar cian) */
+.btn{font:inherit;font-weight:700;border-radius:var(--r-4);padding:10px 16px;border:0;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.btn-primary{background:var(--tt-indigo);color:var(--fg-on-indigo)}
+.btn-search{background:var(--tt-cian);color:var(--fg-on-mint)}
+.btn-sec{background:var(--tt-white);color:var(--tt-indigo);box-shadow:inset 0 0 0 1px var(--tt-indigo)}
+/* Asistente opción A: índigo profundo */
+.ai-a{background:var(--tt-indigo-50);color:var(--tt-indigo-deep);box-shadow:inset 0 0 0 1px var(--tt-indigo-400)}
+/* Asistente opción B: acento oficial */
+.ai-b{background:var(--x-acento-soft);color:var(--fg-1);box-shadow:inset 0 0 0 1px var(--tt-acento)}
+.ai-b svg{color:var(--tt-acento)}
+.combo{width:340px;border:var(--border-line);border-radius:var(--r-8);box-shadow:var(--shadow-dropdown);background:var(--tt-white);overflow:hidden}
+.combo li{list-style:none;padding:9px 12px;display:flex;gap:10px;align-items:flex-start}
+.combo ul{margin:0;padding:4px 0}
+.combo .sub{display:block;font-size:12px;color:var(--fg-3)}
+.combo .ia{border-top:var(--border-line)}
+.combo .ia.a strong{color:var(--tt-indigo-deep)}
+.combo .ia.b strong{color:var(--fg-1)}
+.combo .ia.b svg{color:var(--tt-acento)}
+.combo .ia.a svg{color:var(--tt-indigo)}
+.pill{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--tt-white);box-shadow:var(--shadow-card-hover);position:relative}
+.pill .dot{position:absolute;top:8px;right:8px;width:9px;height:9px;border-radius:50%;border:2px solid var(--tt-white)}
+/* Chips de origen */
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-pill);padding:4px 6px 4px 11px;font-size:13px;background:var(--tt-white);border:1px solid var(--tt-line)}
+.chip .x{color:var(--fg-3);font-size:14px;line-height:1;padding:0 3px}
+.org{font-size:10.5px;font-weight:800;border-radius:var(--r-2);padding:0 4px;line-height:16px}
+.chip.c-ia-a{background:var(--tt-indigo-50);border-color:var(--tt-indigo-400)}
+.chip.c-ia-a .org{background:var(--tt-indigo-deep);color:var(--tt-white)}
+.chip.c-ia-b{background:var(--x-acento-soft);border-color:var(--tt-acento)}
+.chip.c-ia-b .org{background:var(--tt-acento);color:var(--tt-white)}
+.chip.c-saved .org{border:1px solid var(--tt-ink-3);color:var(--tt-ink-3)}
+.chip.c-est{background:var(--x-warning-soft);border:1px dashed var(--tt-warning)}
+.chip.c-est .org{background:var(--tt-warning);color:var(--tt-black)}
+.chip.c-pe{background:var(--x-cian-soft);border-color:var(--tt-mint-dark)}
+.chip.c-pe .org{background:var(--tt-indigo-deep);color:var(--tt-cian)}
+/* Tarjetas de poder de compra */
+.pcard{border-radius:var(--r-10);padding:var(--sp-16);display:flex;flex-direction:column;gap:6px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--fg-3);margin:0}
+.amt{font-size:24px;font-weight:800;letter-spacing:-.01em}
+.meta{font-size:13px;color:var(--fg-2)}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.acts .btn{padding:7px 12px;font-size:13px}
+.ghost{background:transparent;color:var(--tt-indigo);text-decoration:underline}
+.p-est{background:var(--x-warning-soft);border:1px dashed var(--tt-warning)}
+.p-pe{background:var(--x-cian-soft);border:1px solid var(--tt-mint-dark)}
+.p-soft{background:var(--x-warning-soft);border:1px solid var(--tt-warning)}
+.link{color:var(--tt-indigo);font-weight:700;text-decoration:underline}
+/* Badges */
+.badge{font-size:12px;font-weight:700;border-radius:var(--r-4);padding:2px 8px;display:inline-flex;gap:5px;align-items:center}
+.b-new{background:var(--tt-white);color:var(--tt-indigo);box-shadow:inset 0 0 0 1px var(--tt-indigo)}
+.b-est{background:var(--x-warning-soft);color:var(--fg-1);border:1px dashed var(--tt-warning)}
+.b-pe{background:var(--x-cian-soft);color:var(--tt-indigo-deep);border:1px solid var(--tt-mint-dark)}
+.b-ai-a{background:var(--tt-indigo-50);color:var(--tt-indigo-deep)}
+.b-ai-b{background:var(--x-acento-soft);color:var(--fg-1);border:1px solid var(--tt-acento)}
+.b-ok{background:var(--x-success-soft);color:var(--fg-1);border:1px solid var(--tt-success)}
+.b-ok i{width:8px;height:8px;border-radius:50%;background:var(--tt-success);display:inline-block}
+/* Tarjeta de propiedad en contexto */
+.prop{width:270px;border:var(--border-line);border-radius:var(--r-10);overflow:hidden;background:var(--tt-white);box-shadow:var(--shadow-card)}
+.ph{height:120px;background:repeating-linear-gradient(135deg,var(--tt-surface-alt) 0 10px,var(--tt-bg) 10px 20px);position:relative}
+.ph .bs{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.ph .f{position:absolute;right:8px;bottom:8px;font-size:11px;background:var(--tt-white);border-radius:var(--r-4);padding:1px 6px;color:var(--fg-3)}
+.pb{padding:12px 14px}
+.price{font-size:18px;font-weight:800}
+.note{font-size:12.5px;color:var(--fg-3);margin:10px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Muestra: roles del asistente y del poder de compra</h1>
+  <p class="lead">Tokens copiados sin cambios de <code>sistema-diseño-test</code>. Lo marcado <span class="miss">Falta</span> se deriva de tokens existentes con <code>color-mix</code>: es una propuesta no aprobada, sin colores nuevos. Datos ficticios. Solo tema claro.</p>
+
+  <section>
+    <h2>1 · Acción principal</h2>
+    <div class="row">
+      <div class="item"><button class="btn btn-search">Buscar</button><span class="tok">--tt-cian / --fg-on-mint (como hoy)</span></div>
+      <div class="item"><button class="btn btn-primary">Cotizar</button><span class="tok">--tt-indigo / --fg-on-indigo</span></div>
+      <div class="item"><button class="btn btn-primary">Preevaluarme</button><span class="tok">--tt-indigo</span></div>
+      <div class="item"><button class="btn btn-sec">Contactar</button><span class="tok">secundario: inset --tt-indigo</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Acceso al asistente <span class="miss">Falta rol IA</span></h2>
+    <div class="cols">
+      <div>
+        <p class="opt">Opción A · índigo profundo (solo tokens existentes)</p>
+        <div class="row" style="margin-bottom:12px">
+          <button class="btn ai-a"><svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l1.6 4.8L16 8.4l-4.4 1.6L10 15l-1.6-5L4 8.4l4.4-1.6z"/></svg>Asistente</button>
+          <div class="pill"><svg width="20" height="20" viewBox="0 0 20 20" fill="var(--tt-indigo)"><path d="M10 2l1.6 4.8L16 8.4l-4.4 1.6L10 15l-1.6-5L4 8.4l4.4-1.6z"/></svg><span class="dot" style="background:var(--tt-indigo)"></span></div>
+        </div>
+        <div class="combo"><ul>
+          <li>📍<span>Ñuñoa, Región Metropolitana</span></li>
+          <li class="ia a"><svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l1.6 4.8L16 8.4l-4.4 1.6L10 15l-1.6-5L4 8.4l4.4-1.6z"/></svg><span><strong>Describe lo que buscas con IA</strong><span class="sub">Se abrirá el asistente con “cerca del metro y con patio”</span></span></li>
+        </ul></div>
+        <span class="tok">--tt-indigo-50 · --tt-indigo-400 · --tt-indigo-deep</span>
+      </div>
+      <div>
+        <p class="opt">Opción B · acento oficial</p>
+        <div class="row" style="margin-bottom:12px">
+          <button class="btn ai-b"><svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l1.6 4.8L16 8.4l-4.4 1.6L10 15l-1.6-5L4 8.4l4.4-1.6z"/></svg>Asistente</button>
+          <div class="pill"><svg width="20" height="20" viewBox="0 0 20 20" fill="var(--tt-acento)"><path d="M10 2l1.6 4.8L16 8.4l-4.4 1.6L10 15l-1.6-5L4 8.4l4.4-1.6z"/></svg><span class="dot" style="background:var(--tt-acento)"></span></div>
+        </div>
+        <div class="combo"><ul>
+          <li>📍<span>Ñuñoa, Región Metropolitana</span></li>
+          <li class="ia b"><svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l1.6 4.8L16 8.4l-4.4 1.6L10 15l-1.6-5L4 8.4l4.4-1.6z"/></svg><span><strong>Describe lo que buscas con IA</strong><span class="sub">Se abrirá el asistente con “cerca del metro y con patio”</span></span></li>
+        </ul></div>
+        <span class="tok">--tt-acento (borde/ícono) · fondo <span class="miss">Falta</span> acento-soft · texto --fg-1</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Chips de criterios con origen</h2>
+    <div class="row">
+      <span class="chip">Ñuñoa<span class="x">×</span></span>
+      <span class="chip c-ia-a"><span class="org">IA</span>Metro a 10 min<span class="x">×</span></span>
+      <span class="chip c-ia-b"><span class="org">IA</span>Con terraza<span class="x">×</span></span>
+      <span class="chip c-saved"><span class="org">Guardada</span>2+ dormitorios<span class="x">×</span></span>
+      <span class="chip c-est"><span class="org">Estimación</span>Hasta 3.600 UF<span class="x">×</span></span>
+      <span class="chip c-pe"><span class="org">Pre-evaluación</span>Hasta 3.600 UF<span class="x">×</span></span>
+    </div>
+    <span class="tok">sin etiqueta = elegido por ti · IA en opción A y B · Guardada = --tt-ink-3</span>
+  </section>
+
+  <section>
+    <h2>4 · Tarjetas de poder de compra</h2>
+    <div class="cols">
+      <div class="pcard p-est">
+        <p class="eyebrow">Tu presupuesto estimado</p>
+        <span class="amt">Hasta 3.600 UF</span>
+        <span class="meta">Calculado con tu renta, tu pie y una UF ficticia de $39.000</span>
+        <div class="acts"><button class="btn btn-primary">Buscar dentro de mi presupuesto</button><button class="btn btn-sec">Recalcular</button><button class="btn btn-sec">Pre-evaluación express</button><button class="btn ghost">Borrar</button></div>
+        <span class="tok">borde dashed --tt-warning · fondo <span class="miss">Falta</span> warning-soft</span>
+      </div>
+      <div class="pcard p-pe">
+        <p class="eyebrow">Tu pre-evaluación</p>
+        <span class="amt">Hasta 3.600 UF</span>
+        <span class="meta">Dividendo referencial $625.000 al mes · Vigente hasta el 7 de noviembre</span>
+        <div class="acts"><button class="btn btn-primary">Buscar dentro de mi pre-evaluación</button><button class="btn btn-sec">Editar</button><button class="btn ghost">Borrar mis datos</button></div>
+        <span class="tok">borde --tt-mint-dark · fondo <span class="miss">Falta</span> cian-soft</span>
+      </div>
+      <div class="pcard p-soft">
+        <p class="eyebrow">Tu pre-evaluación</p>
+        <span>Busquemos otras opciones: con estos datos no encontramos financiamiento.</span>
+        <div class="acts"><button class="btn btn-sec">Ver propiedades de menor precio</button><button class="btn btn-sec">Actualizar datos</button><button class="btn ghost">Borrar mis datos</button></div>
+        <span class="tok">advertencia suave: borde sólido --tt-warning, sin --tt-danger</span>
+      </div>
+      <div class="pcard p-soft">
+        <p class="eyebrow">Tu pre-evaluación vence el 12 de octubre</p>
+        <span>¿Tu situación sigue igual? <a class="link">Sí, actualizar</a> · <a class="link">Cambió</a></span>
+        <span class="tok">mismo tratamiento: por vencer y vencida</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · Badges y tarjeta en contexto</h2>
+    <div class="row" style="align-items:flex-start;gap:24px">
+      <div class="row" style="max-width:520px">
+        <span class="badge b-new">Proyecto nuevo</span>
+        <span class="badge b-est">Dentro de tu presupuesto</span>
+        <span class="badge b-pe">Dentro de tu pre-evaluación</span>
+        <span class="badge b-ai-a">Sugerida por el asistente (A)</span>
+        <span class="badge b-ai-b">Sugerida por el asistente (B)</span>
+        <span class="badge b-ok"><i></i>Cotizada</span>
+      </div>
+      <div class="prop">
+        <div class="ph"><div class="bs"><span class="badge b-new">Proyecto nuevo</span><span class="badge b-pe">Dentro de tu pre-evaluación</span></div><span class="f">Dato ficticio</span></div>
+        <div class="pb"><div class="price">Desde 3.300 UF</div><div style="font-weight:700">Vista Macul</div><div class="meta">Departamento en Macul · 2 dorm. · metro 6 min</div>
+          <div class="acts" style="justify-content:space-between;align-items:center"><label style="font-size:13px"><input type="checkbox"> Comparar</label><button class="btn btn-primary">Cotizar</button></div></div>
+      </div>
+    </div>
+    <p class="note">Éxito: fondo <span class="miss">Falta</span> success-soft, texto --fg-1 y punto --tt-success. El texto en verde no se usa: no alcanza contraste.</p>
+  </section>
+</div>
+</body>
+</html>

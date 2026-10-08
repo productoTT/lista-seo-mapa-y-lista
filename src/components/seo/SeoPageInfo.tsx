@@ -1,5 +1,6 @@
 import type { Filters } from '../../types/property';
 import { PROPERTY_TYPE_LABELS } from '../../types/property';
+import { comunasPhrase } from '../../search/criteria';
 
 interface SeoPageInfoProps {
   filters: Filters;
@@ -13,7 +14,7 @@ function getH1(filters: Filters): string {
     : filters.propertyType === 'oficina' ? 'Oficinas'
     : 'Propiedades';
   const op = filters.operation === 'arriendo' ? 'en arriendo' : 'en venta';
-  const zone = filters.zone ? `en ${filters.zone}` : 'en Región Metropolitana';
+  const zone = filters.comunas.length ? `en ${comunasPhrase(filters.comunas)}` : 'en Región Metropolitana';
   return `${type} ${op} ${zone}`;
 }
 
@@ -28,10 +29,10 @@ function getBreadcrumb(filters: Filters): { label: string; last: boolean }[] {
         : filters.propertyType === 'casa' ? 'Casa'
         : filters.propertyType === 'oficina' ? 'Oficina'
         : PROPERTY_TYPE_LABELS[filters.propertyType],
-      last: !filters.zone,
+      last: filters.comunas.length === 0,
     });
   }
-  if (filters.zone) crumbs.push({ label: filters.zone, last: true });
+  if (filters.comunas.length) crumbs.push({ label: comunasPhrase(filters.comunas), last: true });
   return crumbs;
 }
 

@@ -1,6 +1,7 @@
 import { X, Bed, Bath, Maximize2, ArrowRight } from 'lucide-react';
 import type { Property } from '../../types/property';
 import { formatPriceUF, formatRent } from '../../data/mockProperties';
+import { bedroomsText } from '../../data/propertyFacts';
 import { CommercialBadge } from '../ui/CommercialBadge';
 
 interface MapPinCardProps {
@@ -10,7 +11,7 @@ interface MapPinCardProps {
 }
 
 export function MapPinCard({ property, onClose, onViewFull }: MapPinCardProps) {
-  const { id, imageUrl, address, zone, bedrooms, bathrooms, sqm, priceUF, price, operation, commercialStatus, isNewProject } = property;
+  const { id, imageUrl, address, zone, bathrooms, sqm, priceUF, price, operation, commercialStatus, isNewProject } = property;
   const priceDisplay = operation === 'arriendo' ? formatRent(price) : formatPriceUF(priceUF);
   const priceClp = operation === 'venta' && price >= 1_000_000
     ? `$${(price / 1_000_000).toFixed(1).replace('.', ',')} mill.`
@@ -59,8 +60,8 @@ export function MapPinCard({ property, onClose, onViewFull }: MapPinCardProps) {
           <p className="text-xs" style={{ color: '#666' }}>{zone}</p>
 
           <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: '#666' }}>
-            {bedrooms > 0 && (
-              <span className="flex items-center gap-1"><Bed size={11} /> {bedrooms} dorm.</span>
+            {bedroomsText(property, true) && (
+              <span className="flex items-center gap-1"><Bed size={11} /> {bedroomsText(property, true)}</span>
             )}
             <span className="flex items-center gap-1"><Bath size={11} /> {bathrooms}</span>
             <span className="flex items-center gap-1"><Maximize2 size={11} /> {sqm} m²</span>

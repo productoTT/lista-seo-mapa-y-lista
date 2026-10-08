@@ -1,0 +1,11 @@
+/* ============================================================
+   TOCTOC Design System — Motion
+   ============================================================ */
+
+:root {
+  --ease-standard:       cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasis:       cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-quick:           120ms;
+  --dur-base:            180ms;
+  --dur-slow:            260ms;
+}
