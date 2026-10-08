@@ -219,6 +219,19 @@ export function canonicalComuna(text: string, known: string[]): string {
   return known.find(k => normText(k) === normText(text)) ?? text.trim();
 }
 
+/** Frase de una búsqueda: "Departamentos en venta en Ñuñoa". */
+export function searchSentence(c: SearchCriteria): string {
+  const type = c.propertyType ? propertyTypePlural(c.propertyType) : 'Propiedades';
+  const op = c.operation === 'arriendo' ? ' en arriendo' : c.operation === 'venta' ? ' en venta' : '';
+  const where = c.comunas.length ? ` en ${comunasPhrase(c.comunas)}` : '';
+  return `${type}${op}${where}`;
+}
+
+/** Identidad de una búsqueda para no repetir recientes (ignora preferencias como la moneda). */
+export function criteriaIdentity(c: SearchCriteria): string {
+  return criterionKeys(c).map(k => `${k}=${criterionValue(c, k)}`).sort().join('|');
+}
+
 /** Frase para títulos y migas: "Departamentos en venta en Ñuñoa y Macul". */
 export function comunasPhrase(comunas: string[]): string {
   if (comunas.length === 0) return '';

@@ -1,8 +1,14 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Screen, ViewMode, SearchInterpretation, Filters, SortOption } from './types/property';
 import { mockProperties } from './data/mockProperties';
-import { filterProperties } from './search/criteria';
+import type { SearchCriteria } from './search/criteria';
+import { DEFAULT_CRITERIA, criteriaIdentity, filterProperties } from './search/criteria';
 import { useSearchState } from './search/useSearchState';
+import type { AssistantHandoff, AssistantEntry } from './assistant/handoff';
+import { comunaPrefill } from './assistant/handoff';
+import { AssistantHandoffPanel } from './components/assistant/AssistantHandoffPanel';
+
+const MAX_RECENTS = 5;
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ResultsScreen } from './components/results/ResultsScreen';
 import { PropertyFullScreen } from './components/screens/PropertyFullScreen';
@@ -79,8 +85,12 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('lista');
   const [query, setQuery] = useState('');
   const [interpretation, setInterpretation] = useState<SearchInterpretation | null>(null);
-  const search = useSearchState();
+  // Valores iniciales del buscador del Home: Comprar · Departamento.
+  const search = useSearchState({ operation: 'venta', propertyType: 'departamento' });
   const { criteria, update: updateCriteria, reset: resetCriteria } = search;
+  // Búsquedas efectivamente ejecutadas (la más reciente primero). Solo en memoria.
+  const [recents, setRecents] = useState<SearchCriteria[]>([]);
+  const [handoff, setHandoff] = useState<AssistantHandoff | null>(null);
   const [sort, setSort] = useState<SortOption>('relevant');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [savedSearch, setSavedSearch] = useState(false);
@@ -100,12 +110,52 @@ export default function App() {
     setScreen('results');
   }, [updateCriteria]);
 
-  const startClassicSearch = useCallback((partial: Partial<Filters>) => {
-    updateCriteria(partial, 'usuario');
+  const recordRecent = useCallback((c: SearchCriteria) => {
+    const id = criteriaIdentity(c);
+    setRecents(prev => [c, ...prev.filter(r => criteriaIdentity(r) !== id)].slice(0, MAX_RECENTS));
+  }, []);
+
+  /** Ejecuta la búsqueda aplicada (con un cambio opcional) y abre resultados. */
+  const runSearch = useCallback((patch: Partial<SearchCriteria> = {}) => {
+    updateCriteria(patch, 'usuario');
+    recordRecent({ ...criteria, ...patch });
     setInterpretation(null);
     setQuery('');
+    setHandoff(null);
     setScreen('results');
-  }, [updateCriteria]);
+  }, [criteria, updateCriteria, recordRecent]);
+
+  /** Reemplaza la búsqueda completa (recientes y búsquedas frecuentes) y la ejecuta. */
+  const runFullSearch = useCallback((c: SearchCriteria) => {
+    resetCriteria(c);
+    recordRecent(c);
+    setInterpretation(null);
+    setQuery('');
+    setHandoff(null);
+    setScreen('results');
+  }, [resetCriteria, recordRecent]);
+
+  /**
+   * Traspaso al asistente (se construye en el bloque 3). Desde el inicio, el borrador parte solo con
+   * operación y tipo. No interpreta el texto ni cambia la búsqueda aplicada.
+   */
+  const openAssistant = useCallback((o: { firstMessage?: string; comuna?: string; entry: AssistantEntry }) => {
+    search.startDraft('operationAndType');
+    setHandoff({
+      entry: o.entry,
+      firstMessage: o.firstMessage,
+      prefill: o.comuna ? comunaPrefill(o.comuna) : o.firstMessage ? undefined : '',
+      context: {
+        view: 'inicio',
+        draft: { ...DEFAULT_CRITERIA, operation: criteria.operation, propertyType: criteria.propertyType },
+      },
+    });
+  }, [search, criteria.operation, criteria.propertyType]);
+
+  const closeAssistant = useCallback(() => {
+    setHandoff(null);
+    search.discardDraft();
+  }, [search]);
 
   const filteredProperties = useMemo(
     () => sortProps(filterProperties(mockProperties, criteria), sort),
@@ -116,7 +166,18 @@ export default function App() {
 
   if (screen === 'home') return (
     <>
-      <HomeScreen onSearch={startSearch} onClassicSearch={startClassicSearch} />
+      <HomeScreen
+        criteria={criteria}
+        resultCount={filteredProperties.length}
+        recents={recents}
+        onUpdate={patch => updateCriteria(patch, 'usuario')}
+        onSearch={runSearch}
+        onRunRecent={runFullSearch}
+        onRunSearch={runFullSearch}
+        onClear={() => resetCriteria({ operation: criteria.operation, propertyType: criteria.propertyType })}
+        onOpenAssistant={openAssistant}
+      />
+      {handoff && <AssistantHandoffPanel handoff={handoff} onClose={closeAssistant} />}
       <Snackbar message={snackbar.message} visible={snackbar.visible} onHide={() => setSnackbar(s => ({ ...s, visible: false }))} />
     </>
   );
@@ -171,7 +232,9 @@ export default function App() {
         }}
         advancedFilters={criteria}
         onAdvancedFiltersChange={search.updateAdvanced}
-        onGoHome={() => { setScreen('home'); resetCriteria(); setViewMode('lista'); }}
+        // Volver al inicio conserva la búsqueda (una sola búsqueda en todo el sitio) y la registra como reciente.
+        onGoHome={() => { recordRecent(criteria); setScreen('home'); setViewMode('lista'); }}
+        initialSearchMode={interpretation ? 'ia' : 'clasico'}
         onSearch={startSearch}
         onViewFullProperty={id => { setSelectedPropertyId(id); setScreen('property-full'); }}
         onContact={() => showSnack('Mensaje enviado. El anunciante te contactará pronto.')}

@@ -1,20 +1,12 @@
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, Sparkles, ChevronDown, Key, TrendingUp, Building2 } from 'lucide-react';
+import { Key, TrendingUp, Building2 } from 'lucide-react';
 import { ToctocFullHeader } from '../seo/ToctocFullHeader';
-import type { Filters, OperationType, PropertyType } from '../../types/property';
-import { LOADING_STEPS, STEP_TIMESTAMPS, SEARCH_TOTAL_MS } from '../ia/IASearchShared';
-import { canonicalComuna } from '../../search/criteria';
+import type { SearchCriteria } from '../../search/criteria';
+import { DEFAULT_CRITERIA } from '../../search/criteria';
+import { HomeSearch, type HomeSearchProps } from '../home/HomeSearch';
 
 // ── Constants ─────────────────────────────────────────────
 
-const IA_EXAMPLES = [
-  'Departamento en Ñuñoa, 2 dormitorios, hasta 5.000 UF',
-  'Casa en arriendo en La Reina con patio',
-  'Depto cerca de metro en Providencia',
-  'Inversión en Santiago Centro hasta 4.000 UF',
-];
-
+// Comunas reconocidas por el combobox de ubicación.
 const COMMUNES = [
   'Ñuñoa', 'Providencia', 'Las Condes', 'Vitacura', 'Santiago Centro',
   'Miraflores', 'La Florida', 'Peñalolén', 'La Reina', 'Macul',
@@ -22,144 +14,31 @@ const COMMUNES = [
   'Lo Barnechea', 'Huechuraba', 'Conchalí', 'Recoleta', 'Independencia',
 ];
 
-const INDIGO = '#3200C1';
-const MINT = '#37FFDB';
+// "Búsquedas sugeridas" del combobox cuando no hay recientes (comunas populares).
+const POPULAR = ['Ñuñoa', 'Providencia', 'Las Condes'];
 
-// ── Small sub-components ──────────────────────────────────
+const FREQUENT: { label: string; criteria: Partial<SearchCriteria> }[] = [
+  { label: 'Departamentos en venta en Ñuñoa', criteria: { operation: 'venta', propertyType: 'departamento', comunas: ['Ñuñoa'] } },
+  { label: 'Departamentos en arriendo en Providencia', criteria: { operation: 'arriendo', propertyType: 'departamento', comunas: ['Providencia'] } },
+  { label: 'Casas en venta en Peñalolén', criteria: { operation: 'venta', propertyType: 'casa', comunas: ['Peñalolén'] } },
+  { label: 'Casas en venta en La Florida', criteria: { operation: 'venta', propertyType: 'casa', comunas: ['La Florida'] } },
+];
 
-function SelectDropdown({
-  value, options, onChange,
-}: {
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{
-          appearance: 'none',
-          WebkitAppearance: 'none',
-          border: 0,
-          outline: 0,
-          background: 'transparent',
-          fontSize: 14,
-          fontWeight: 600,
-          color: '#343A40',
-          cursor: 'pointer',
-          paddingRight: 20,
-          paddingLeft: 0,
-          fontFamily: 'inherit',
-        }}
-      >
-        {options.map(o => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-      <ChevronDown size={14} color="#666" style={{ position: 'absolute', right: 2, pointerEvents: 'none' }} />
-    </div>
-  );
-}
+const INDIGO = 'var(--tt-indigo)';
 
 // ── Main component ────────────────────────────────────────
 
-type SearchTab = 'traditional' | 'ia';
+type HomeScreenProps = Omit<HomeSearchProps, 'comunas' | 'popular'> & {
+  /** Ejecuta una búsqueda completa (búsquedas frecuentes). */
+  onRunSearch: (criteria: SearchCriteria) => void;
+};
 
-interface HomeScreenProps {
-  onSearch: (query: string) => void;
-  onClassicSearch: (filters: Partial<Filters>) => void;
-}
-
-export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
-  const [tab, setTab] = useState<SearchTab>('traditional');
-
-  // Traditional search state
-  const [operation, setOperation] = useState<OperationType>('venta');
-  const [propertyType, setPropertyType] = useState<PropertyType | 'todos'>('departamento');
-  const [commune, setCommune] = useState('');
-  const [communeSuggestions, setCommuneSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const communeRef = useRef<HTMLDivElement>(null);
-
-  // IA search state
-  const [iaQuery, setIaQuery] = useState('');
-  const [iaSuggestionsOpen, setIaSuggestionsOpen] = useState(false);
-  const [iaLoading, setIaLoading] = useState(false);
-  const [iaLoadingStep, setIaLoadingStep] = useState(0);
-  const iaInputRef = useRef<HTMLDivElement>(null);
-  const [iaInputRect, setIaInputRect] = useState<DOMRect | null>(null);
-
-  const updateIaRect = useCallback(() => {
-    if (iaInputRef.current) setIaInputRect(iaInputRef.current.getBoundingClientRect());
-  }, []);
-
-  useEffect(() => {
-    if (!iaSuggestionsOpen) return;
-    updateIaRect();
-    window.addEventListener('scroll', updateIaRect, true);
-    window.addEventListener('resize', updateIaRect);
-    return () => {
-      window.removeEventListener('scroll', updateIaRect, true);
-      window.removeEventListener('resize', updateIaRect);
-    };
-  }, [iaSuggestionsOpen, updateIaRect]);
-
-  // Close commune suggestions on outside click
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (communeRef.current && !communeRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false);
-      }
-    }
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
-  function handleCommuneInput(val: string) {
-    setCommune(val);
-    if (val.length >= 1) {
-      const filtered = COMMUNES.filter(c => c.toLowerCase().startsWith(val.toLowerCase()));
-      setCommuneSuggestions(filtered.slice(0, 6));
-      setShowSuggestions(filtered.length > 0);
-    } else {
-      setShowSuggestions(false);
-    }
-  }
-
-  function handleTraditionalSearch() {
-    const partial: Partial<Filters> = {
-      operation,
-      propertyType: propertyType === 'todos' ? null : propertyType,
-      comunas: commune.trim() ? [canonicalComuna(commune, COMMUNES)] : [],
-    };
-    onClassicSearch(partial);
-  }
-
-  function handleIaSearch(q?: string) {
-    const text = (q ?? iaQuery).trim();
-    if (!text) return;
-    setIaSuggestionsOpen(false);
-    setIaLoading(true);
-    setIaLoadingStep(0);
-
-    const t1 = setTimeout(() => setIaLoadingStep(1), STEP_TIMESTAMPS[1]);
-    const t2 = setTimeout(() => setIaLoadingStep(2), STEP_TIMESTAMPS[2]);
-    const t3 = setTimeout(() => setIaLoadingStep(3), STEP_TIMESTAMPS[3]);
-    const t4 = setTimeout(() => {
-      setIaLoading(false);
-      setIaLoadingStep(0);
-      onSearch(text);
-    }, SEARCH_TOTAL_MS);
-
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
-  }
-
-  function handleIaKey(e: KeyboardEvent) {
-    if (e.key === 'Enter') handleIaSearch();
-  }
-
+/**
+ * Home: buscador tradicional con entrada progresiva al asistente (bloque 2).
+ * Las pestañas Clásica/IA y la búsqueda IA que aplicaba filtros automáticamente se reemplazaron.
+ */
+export function HomeScreen({ onRunSearch, ...search }: HomeScreenProps) {
+  const { onSearch } = search;
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#F5F5F5', fontFamily: 'inherit' }}>
 
@@ -208,370 +87,10 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
           Hola, busca aquí tu próximo hogar
         </h1>
 
-        {/* ── Search block ────────────────────────────────── */}
-        <div style={{ width: '100%', maxWidth: 760 }}>
 
-          {/* Tabs — float directly on purple */}
-          <div style={{ display: 'flex', gap: 0, marginBottom: 12 }}>
-            {([
-              { key: 'traditional' as const, label: 'Búsqueda clásica' },
-              { key: 'ia' as const, label: 'Búsqueda con IA ✨' },
-            ]).map(t => (
-              <button
-                key={t.key}
-                onClick={() => { setTab(t.key); setIaSuggestionsOpen(false); }}
-                style={{
-                  border: 0,
-                  background: 'transparent',
-                  padding: '10px 18px',
-                  fontSize: 14,
-                  fontWeight: tab === t.key ? 700 : 400,
-                  color: tab === t.key ? '#fff' : 'rgba(255,255,255,0.62)',
-                  borderBottom: tab === t.key ? '2px solid #fff' : '2px solid transparent',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  whiteSpace: 'nowrap',
-                  transition: 'color 0.12s',
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Traditional tab ─────────────────────────── */}
-          {tab === 'traditional' && (
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  borderRadius: 10,
-                  overflow: 'visible',
-                  background: '#fff',
-                  boxShadow: '0 4px 24px rgba(20,0,80,0.22)',
-                }}
-              >
-                {/* Operation */}
-                <div
-                  style={{
-                    padding: '0 16px',
-                    borderRight: '1px solid #E5E5E5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: 52,
-                    flexShrink: 0,
-                  }}
-                >
-                  <SelectDropdown
-                    value={operation}
-                    options={[
-                      { value: 'venta', label: 'Comprar' },
-                      { value: 'arriendo', label: 'Arrendar' },
-                    ]}
-                    onChange={v => setOperation(v as OperationType)}
-                  />
-                </div>
-
-                {/* Property type */}
-                <div
-                  style={{
-                    padding: '0 16px',
-                    borderRight: '1px solid #E5E5E5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: 52,
-                    flexShrink: 0,
-                  }}
-                >
-                  <SelectDropdown
-                    value={propertyType}
-                    options={[
-                      { value: 'departamento', label: 'Departamento' },
-                      { value: 'casa', label: 'Casa' },
-                      { value: 'oficina', label: 'Oficina' },
-                      { value: 'todos', label: 'Todos los tipos' },
-                    ]}
-                    onChange={v => setPropertyType(v as PropertyType | 'todos')}
-                  />
-                </div>
-
-                {/* Commune input */}
-                <div
-                  ref={communeRef}
-                  style={{ flex: 1, position: 'relative' }}
-                >
-                  <input
-                    type="text"
-                    value={commune}
-                    onChange={e => handleCommuneInput(e.target.value)}
-                    onFocus={() => commune && setShowSuggestions(communeSuggestions.length > 0)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleTraditionalSearch(); }}
-                    placeholder="Ingresa comuna o ciudad"
-                    style={{
-                      width: '100%',
-                      border: 0,
-                      outline: 0,
-                      padding: '0 16px',
-                      height: 52,
-                      fontSize: 14,
-                      color: '#343A40',
-                      background: 'transparent',
-                      boxSizing: 'border-box',
-                      fontFamily: 'inherit',
-                    }}
-                  />
-                  {showSuggestions && communeSuggestions.length > 0 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        background: '#fff',
-                        border: '1px solid #E5E5E5',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-                        zIndex: 100,
-                        marginTop: 4,
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {communeSuggestions.map(c => (
-                        <button
-                          key={c}
-                          onMouseDown={() => { setCommune(c); setShowSuggestions(false); }}
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            padding: '10px 16px',
-                            border: 0,
-                            background: 'transparent',
-                            textAlign: 'left',
-                            fontSize: 14,
-                            color: '#343A40',
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = '#F5F5F5')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Search button */}
-                <button
-                  onClick={handleTraditionalSearch}
-                  style={{
-                    height: 52,
-                    padding: '0 28px',
-                    background: MINT,
-                    color: INDIGO,
-                    border: 0,
-                    fontSize: 14,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontFamily: 'inherit',
-                    flexShrink: 0,
-                    borderRadius: '0 7px 7px 0',
-                    transition: 'opacity 0.15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  <Search size={15} />
-                  Buscar
-                </button>
-              </div>
-
-              {/* Código link */}
-              <div style={{ marginTop: 12 }}>
-                <button
-                  style={{
-                    border: 0,
-                    background: 'transparent',
-                    fontSize: 12,
-                    color: 'rgba(255,255,255,0.72)',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    textDecoration: 'underline',
-                    padding: 0,
-                  }}
-                >
-                  Buscar propiedad por código
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── IA tab ──────────────────────────────────── */}
-          {tab === 'ia' && (
-            <div>
-              {/* ── Loading state ── */}
-              {iaLoading ? (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  style={{
-                    background: '#fff',
-                    borderRadius: 10,
-                    boxShadow: '0 4px 24px rgba(20,0,80,0.22)',
-                    overflow: 'hidden',
-                    padding: '18px 20px 0',
-                  }}
-                >
-                  {/* Icon + generic message */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Sparkles
-                      size={20}
-                      color={INDIGO}
-                      className="ia-sparkle-icon"
-                      style={{ flexShrink: 0, animation: 'ia-sparkle-pulse 1.2s ease-in-out infinite' }}
-                    />
-                    <p key={iaLoadingStep} style={{ margin: 0, fontSize: 14, fontWeight: 700, color: INDIGO, animation: 'ia-chip-in 0.25s ease both' }}>
-                      {LOADING_STEPS[iaLoadingStep]}
-                    </p>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div style={{ marginTop: 14, height: 3, background: '#EAF2FC', borderRadius: 0, overflow: 'hidden', marginLeft: -20, marginRight: -20 }}>
-                    <div
-                      className="ia-progress-bar"
-                      style={{
-                        height: '100%',
-                        width: '35%',
-                        background: `linear-gradient(90deg, ${INDIGO}, ${MINT})`,
-                        borderRadius: 2,
-                        animation: 'ia-progress 1.1s ease-in-out infinite',
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                /* ── Normal input state ── */
-                <div
-                  ref={iaInputRef}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    borderRadius: 10,
-                    overflow: 'hidden',
-                    background: '#fff',
-                    boxShadow: '0 4px 24px rgba(20,0,80,0.22)',
-                  }}
-                >
-                  <Sparkles size={16} color={INDIGO} style={{ marginLeft: 14, flexShrink: 0 }} />
-                  <input
-                    type="text"
-                    value={iaQuery}
-                    onChange={e => setIaQuery(e.target.value)}
-                    onFocus={() => { updateIaRect(); setIaSuggestionsOpen(true); }}
-                    onKeyDown={handleIaKey}
-                    placeholder="Ej: Departamento en Ñuñoa, 2 dormitorios, hasta 5.000 UF"
-                    style={{
-                      flex: 1,
-                      border: 0,
-                      outline: 0,
-                      padding: '0 12px',
-                      height: 52,
-                      fontSize: 14,
-                      color: '#343A40',
-                      background: 'transparent',
-                      fontFamily: 'inherit',
-                    }}
-                  />
-                  <button
-                    onClick={() => handleIaSearch()}
-                    disabled={iaLoading}
-                    style={{
-                      height: 52,
-                      padding: '0 28px',
-                      background: MINT,
-                      color: INDIGO,
-                      border: 0,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontFamily: 'inherit',
-                      flexShrink: 0,
-                      transition: 'opacity 0.15s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                  >
-                    <Search size={15} />
-                    Buscar
-                  </button>
-                </div>
-              )}
-
-              {/* Suggestions portal — only visible on focus, anchored below input */}
-              {iaSuggestionsOpen && iaInputRect && createPortal(
-                <>
-                  <div
-                    style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-                    onMouseDown={() => setIaSuggestionsOpen(false)}
-                  />
-                  <div
-                    style={{
-                      position: 'fixed',
-                      top: iaInputRect.bottom + 6,
-                      left: iaInputRect.left,
-                      width: iaInputRect.width,
-                      background: '#fff',
-                      border: '1px solid #E5E5E5',
-                      borderRadius: 10,
-                      boxShadow: '0 8px 32px rgba(50,0,193,0.14)',
-                      zIndex: 9999,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <p style={{ margin: 0, padding: '10px 16px 6px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#999' }}>
-                      Sugerencias IA
-                    </p>
-                    {IA_EXAMPLES.map(ex => (
-                      <button
-                        key={ex}
-                        onMouseDown={() => { setIaQuery(ex); setIaSuggestionsOpen(false); }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          width: '100%',
-                          padding: '10px 16px',
-                          border: 0,
-                          background: 'transparent',
-                          textAlign: 'left',
-                          fontSize: 13,
-                          color: '#343A40',
-                          cursor: 'pointer',
-                          fontFamily: 'inherit',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#EAF2FC')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <Sparkles size={13} color={INDIGO} style={{ flexShrink: 0 }} />
-                        {ex}
-                      </button>
-                    ))}
-                  </div>
-                </>,
-                document.body
-              )}
-            </div>
-          )}
-        </div>
+        <HomeSearch {...search} comunas={COMMUNES} popular={POPULAR} />
       </section>
+
 
       {/* ── Below-hero sections ───────────────────────────── */}
 
@@ -601,19 +120,20 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
               icon: Key,
               label: 'Comprar',
               sub: 'Departamentos y casas en venta',
-              action: () => onClassicSearch({ operation: 'venta' }),
+              action: () => onSearch({ operation: 'venta' }),
             },
             {
               icon: TrendingUp,
               label: 'Arrendar',
               sub: 'Arriendo residencial y comercial',
-              action: () => onClassicSearch({ operation: 'arriendo' }),
+              action: () => onSearch({ operation: 'arriendo' }),
             },
             {
               icon: Building2,
               label: 'Proyectos nuevos',
               sub: 'Edificios y condominios en construcción',
-              action: () => onSearch('Proyectos nuevos en venta Santiago'),
+              // Antes abría la búsqueda IA anterior; ahora es una búsqueda directa de proyectos nuevos.
+              action: () => onSearch({ operation: 'venta', status: ['nueva'] }),
             },
           ].map(({ icon: Icon, label, sub, action }) => (
             <button
@@ -656,6 +176,23 @@ export function HomeScreen({ onSearch, onClassicSearch }: HomeScreenProps) {
             </button>
           ))}
         </div>
+      </section>
+
+
+      {/* Búsquedas frecuentes (spec §5) */}
+      <section aria-labelledby="home-frecuentes" style={{ padding: '0 16px 48px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+        <h2 id="home-frecuentes" style={{ fontSize: 20, fontWeight: 700, color: 'var(--tt-ink)', margin: '0 0 16px', textAlign: 'center' }}>
+          Búsquedas frecuentes
+        </h2>
+        <ul style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', listStyle: 'none', margin: 0, padding: 0 }}>
+          {FREQUENT.map(f => (
+            <li key={f.label}>
+              <button type="button" className="home-frequent" onClick={() => onRunSearch({ ...DEFAULT_CRITERIA, ...f.criteria })}>
+                {f.label}
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Commercial banners */}

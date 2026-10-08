@@ -4,8 +4,8 @@ import type { CriterionOrigin, SearchCriteria } from './criteria';
 import { initialSearchState, searchReducer } from './searchState';
 
 /** Hook de la búsqueda compartida. Expone adaptadores para los componentes que reciben Filters/AdvancedFilters por separado. */
-export function useSearchState() {
-  const [state, dispatch] = useReducer(searchReducer, undefined, () => initialSearchState());
+export function useSearchState(base: Partial<SearchCriteria> = {}) {
+  const [state, dispatch] = useReducer(searchReducer, base, initialSearchState);
 
   const update = useCallback(
     (patch: Partial<SearchCriteria>, origin: CriterionOrigin = 'usuario') => dispatch({ type: 'update', patch, origin }),

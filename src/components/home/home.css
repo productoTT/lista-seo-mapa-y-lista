@@ -1,0 +1,124 @@
+/* Buscador del Home — patrón del sistema de diseño (product/web/screens/Home.jsx):
+   pestañas de operación sobre el hero índigo, unidas a una tarjeta blanca con el buscador.
+   Solo tokens existentes; el asistente reutiliza el estilo actual (índigo + destello), sin color semántico nuevo. */
+
+.hs { width: 100%; max-width: 760px; font-family: inherit; }
+
+/* ── Pestañas de operación (radiogroup) ── */
+.hs-tabs { display: flex; gap: 0; }
+.hs-tab {
+  border: 0; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700;
+  padding: 10px 22px; border-radius: var(--r-8) var(--r-8) 0 0;
+  background: rgba(255, 255, 255, .18); color: var(--tt-white);
+  transition: background-color var(--dur-quick) var(--ease-standard);
+}
+.hs-tab:hover { background: rgba(255, 255, 255, .28); }
+.hs-tab[aria-checked="true"] { background: var(--tt-white); color: var(--tt-indigo); }
+.hs-tab:focus-visible { outline: 2px solid var(--tt-cian); outline-offset: 2px; }
+
+/* ── Tarjeta del buscador ── */
+.hs-card {
+  display: flex; align-items: flex-end; gap: var(--sp-12);
+  background: var(--tt-white); padding: var(--sp-16);
+  border-radius: 0 var(--r-10) var(--r-10) var(--r-10);
+  box-shadow: var(--shadow-card-hover);
+}
+.hs-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; position: relative; }
+.hs-field-type { width: 190px; flex-shrink: 0; }
+.hs-field-location { flex: 1; }
+.hs-label { font-size: 12px; font-weight: 700; color: var(--tt-ink-3); }
+.hs-select, .hs-input {
+  height: 44px; width: 100%; padding: 0 12px;
+  border: var(--border-line); border-radius: var(--r-4);
+  background: var(--tt-white); color: var(--tt-ink); font: inherit; font-size: 14px;
+}
+.hs-select { cursor: pointer; }
+.hs-select:focus-visible, .hs-input:focus-visible { outline: 2px solid var(--tt-indigo); outline-offset: 0; border-color: var(--tt-indigo); }
+.hs-input::placeholder { color: var(--tt-ink-3); }
+
+.hs-submit {
+  height: 44px; padding: 0 26px; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 0; border-radius: var(--r-4); cursor: pointer;
+  background: var(--tt-cian); color: var(--fg-on-mint); font: inherit; font-size: 14px; font-weight: 700;
+}
+.hs-submit:hover { background: var(--tt-mint-dark); }
+.hs-submit:focus-visible { outline: 2px solid var(--tt-indigo); outline-offset: 2px; }
+
+/* ── Combobox ── */
+.hs-listbox {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 50;
+  margin: 0; padding: 6px; list-style: none;
+  background: var(--tt-white); border: var(--border-line); border-radius: var(--r-8);
+  box-shadow: var(--shadow-dropdown); max-height: 360px; overflow: auto;
+}
+.hs-listbox[hidden] { display: none; }
+.hs-group { margin: 0; padding: 0; list-style: none; }
+.hs-group-label { display: block; padding: 8px 10px 2px; font-size: 12px; font-weight: 700; color: var(--tt-ink-3); }
+.hs-option {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px; border-radius: var(--r-4); cursor: pointer; color: var(--tt-ink); font-size: 14px;
+}
+.hs-option[aria-selected="true"] { background: var(--tt-indigo-50); }
+.hs-option-icon { flex-shrink: 0; margin-top: 2px; color: var(--tt-ink-3); }
+.hs-option-text { display: flex; flex-direction: column; min-width: 0; }
+.hs-option-sub { font-size: 12px; color: var(--tt-ink-3); margin-top: 2px; }
+.hs-option-ai { border-top: var(--border-line); margin-top: 6px; padding-top: 12px; border-radius: 0 0 var(--r-4) var(--r-4); }
+.hs-option-ai.hs-option-only { border-top: 0; margin-top: 0; padding-top: 10px; border-radius: var(--r-4); }
+.hs-option-ai .hs-option-icon { color: var(--tt-indigo); }
+.hs-option-ai strong { color: var(--tt-indigo); font-weight: 700; }
+
+/* ── Debajo del buscador (sobre el hero) ── */
+.hs-below { margin-top: var(--sp-12); font-size: 13px; color: rgba(255, 255, 255, .85); }
+.hs-linkbtn {
+  border: 0; background: none; padding: 0; cursor: pointer; font: inherit; font-weight: 700;
+  color: var(--tt-white); text-decoration: underline; text-underline-offset: 3px;
+}
+.hs-linkbtn:focus-visible { outline: 2px solid var(--tt-cian); outline-offset: 2px; border-radius: 2px; }
+
+/* ── "Tu búsqueda ya tiene:" ── */
+.hs-crit {
+  margin-top: var(--sp-16); padding: var(--sp-12) var(--sp-16);
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12);
+  background: var(--tt-white); border-radius: var(--r-10); color: var(--tt-ink); font-size: 14px;
+}
+.hs-crit-lead { font-weight: 700; }
+.hs-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; margin: 0; padding: 0; list-style: none; }
+.hs-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--tt-indigo-50); color: var(--tt-indigo);
+  padding: 4px 6px 4px 10px; border-radius: var(--r-4); font-size: 12px; font-weight: 700;
+}
+.hs-chip button {
+  border: 0; background: none; padding: 2px; cursor: pointer; color: inherit; display: inline-flex; border-radius: var(--r-2);
+}
+.hs-chip button:focus-visible { outline: 2px solid var(--tt-indigo); outline-offset: 1px; }
+.hs-crit-actions { display: flex; gap: var(--sp-8); }
+.hs-btn { height: 36px; padding: 0 16px; border-radius: var(--r-4); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; border: 0; }
+.hs-btn-primary { background: var(--tt-indigo); color: var(--fg-on-indigo); }
+.hs-btn-primary:hover { background: var(--tt-indigo-dark); }
+.hs-btn-ghost { background: transparent; color: var(--tt-indigo); }
+.hs-btn:focus-visible { outline: 2px solid var(--tt-indigo); outline-offset: 2px; }
+
+.hs-note { margin: var(--sp-12) 0 0; font-size: 12px; color: rgba(255, 255, 255, .72); }
+
+/* ── Móvil: el buscador se apila; sin scroll horizontal ── */
+@media (max-width: 640px) {
+  .hs-card { flex-direction: column; align-items: stretch; border-radius: 0 var(--r-10) var(--r-10) var(--r-10); }
+  .hs-field-type { width: 100%; }
+  .hs-submit { justify-content: center; }
+  .hs-tab { flex: 1; padding: 10px 12px; }
+  .hs-crit-actions { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hs-tab { transition: none; }
+}
+
+/* Búsquedas frecuentes (sección bajo el hero) */
+.home-frequent {
+  border: var(--border-line); border-radius: var(--r-pill); background: var(--tt-white);
+  padding: 8px 14px; font: inherit; font-size: 14px; color: var(--tt-ink); cursor: pointer;
+}
+.home-frequent:hover { border-color: var(--tt-indigo); color: var(--tt-indigo); }
+.home-frequent:focus-visible { outline: 2px solid var(--tt-indigo); outline-offset: 2px; }

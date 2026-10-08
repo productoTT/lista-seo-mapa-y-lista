@@ -53,6 +53,8 @@ interface ResultsScreenProps {
   onSortChange: (s: SortOption) => void;
   advancedFilters: AdvancedFilters;
   onAdvancedFiltersChange: (f: Partial<AdvancedFilters>) => void;
+  /** Modo inicial de la cabecera: "clasico" al llegar desde la búsqueda tradicional. */
+  initialSearchMode?: 'ia' | 'clasico';
 }
 
 export function ResultsScreen({
@@ -60,7 +62,7 @@ export function ResultsScreen({
   interpretation, query, savedSearch, onSaveSearch,
   savedProperties, onSaveProperty, onGoHome, onSearch,
   onViewFullProperty, onContact, sort, onSortChange,
-  advancedFilters, onAdvancedFiltersChange,
+  advancedFilters, onAdvancedFiltersChange, initialSearchMode = 'clasico',
 }: ResultsScreenProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showSemanticSearch, setShowSemanticSearch] = useState(false);
@@ -169,6 +171,7 @@ export function ResultsScreen({
         onSearch={onSearch}
         advancedFilters={advancedFilters}
         onAdvancedFiltersChange={onAdvancedFiltersChange}
+        initialSearchMode={initialSearchMode}
       />
 
       {/* Content */}

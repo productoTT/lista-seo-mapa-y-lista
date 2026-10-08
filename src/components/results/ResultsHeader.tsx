@@ -40,6 +40,8 @@ interface ResultsHeaderProps {
   onSearch?: (q: string) => void;
   advancedFilters?: AdvancedFilters;
   onAdvancedFiltersChange?: (f: Partial<AdvancedFilters>) => void;
+  /** Modo con que abre la cabecera. Desde la búsqueda tradicional: "clasico". */
+  initialSearchMode?: 'ia' | 'clasico';
 }
 
 const VIEW_OPTIONS: { id: ViewMode; icon: typeof List; label: string }[] = [
@@ -536,9 +538,9 @@ export function ResultsHeader({
   viewMode, onViewChange, filters, onFiltersChange,
   query, resultCount: _resultCount, onOpenFilters,
   savedSearch, onSaveSearch, onSearch,
-  advancedFilters, onAdvancedFiltersChange,
+  advancedFilters, onAdvancedFiltersChange, initialSearchMode = 'clasico',
 }: ResultsHeaderProps) {
-  const [searchMode, setSearchMode] = useState<'ia' | 'clasico'>('ia');
+  const [searchMode, setSearchMode] = useState<'ia' | 'clasico'>(initialSearchMode);
   const [iaText, setIaText] = useState(query || '');
   const [iaLoading, setIaLoading] = useState(false);
   const [iaLoadingStep, setIaLoadingStep] = useState(0);
