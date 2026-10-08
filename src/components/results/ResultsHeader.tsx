@@ -10,38 +10,26 @@ import { activeCriteria, propertyTypePlural, removalPatch, splitPatch } from '..
 
 // Tokens del sistema de diseño (mismo valor que los colores anteriores; ver src/styles/ds-tokens/README.md)
 const INDIGO = 'var(--tt-indigo)';
-const MINT = 'var(--tt-cian)';
 const INDIGO_50 = 'var(--tt-indigo-50)';
 const FG1 = 'var(--tt-ink)';
 const FG3 = 'var(--tt-ink-3)';
 const DIVIDER = 'var(--tt-divider)';
 
-import { LOADING_STEPS as LOADING_STEPS_SEO, STEP_TIMESTAMPS, SEARCH_TOTAL_MS } from '../ia/IASearchShared';
 
-const IA_SUGGESTIONS = [
-  'Deptos en Providencia cerca de metro',
-  'Departamento 2 dormitorios hasta 5.000 UF',
-  'Propiedades con terraza y estacionamiento',
-  'Casas en La Reina cerca de colegios',
-  'Deptos nuevos en Ñuñoa',
-];
 
 interface ResultsHeaderProps {
   viewMode: ViewMode;
   onViewChange: (v: ViewMode) => void;
   filters: Filters;
   onFiltersChange: (f: Partial<Filters>) => void;
-  query: string;
   resultCount: number;
-  onOpenSemanticSearch: () => void;
   onOpenFilters: () => void;
   savedSearch: boolean;
   onSaveSearch: () => void;
-  onSearch?: (q: string) => void;
   advancedFilters?: AdvancedFilters;
   onAdvancedFiltersChange?: (f: Partial<AdvancedFilters>) => void;
-  /** Modo con que abre la cabecera. Desde la búsqueda tradicional: "clasico". */
-  initialSearchMode?: 'ia' | 'clasico';
+  /** Asistente conversacional (único). `available` es falso en Mapa y Dividida mientras el panel no se integre ahí. */
+  assistant?: { available: boolean; open: boolean; active: boolean; onOpen: () => void };
 }
 
 const VIEW_OPTIONS: { id: ViewMode; icon: typeof List; label: string }[] = [
@@ -264,38 +252,6 @@ function Dropdown({
   );
 }
 
-function ModeToggle({ mode, onChange }: { mode: 'ia' | 'clasico'; onChange: (m: 'ia' | 'clasico') => void }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center',
-      border: `1px solid ${DIVIDER}`,
-      borderRadius: 4, overflow: 'hidden',
-      flexShrink: 0, height: 36,
-    }}>
-      {(['ia', 'clasico'] as const).map(m => (
-        <button
-          key={m}
-          onClick={() => onChange(m)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            padding: '0 10px', height: '100%',
-            border: 0,
-            fontSize: 12, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'inherit',
-            whiteSpace: 'nowrap',
-            ...(mode === m
-              ? { background: INDIGO, color: '#fff' }
-              : { background: '#fff', color: FG3 }),
-          }}
-        >
-          {m === 'ia' && <Sparkles size={10} />}
-          {m === 'ia' ? 'Búsqueda IA' : 'Clásico'}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
     <span style={{
@@ -316,146 +272,6 @@ function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }
         <X size={11} color={INDIGO} />
       </button>
     </span>
-  );
-}
-
-// ── IA search input with portal suggestions ───────────────
-
-function IaSearchInput({
-  value, onChange, onSearch,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSearch: (v: string) => void;
-}) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const filtered = value.trim()
-    ? IA_SUGGESTIONS.filter(s => s.toLowerCase().includes(value.toLowerCase()))
-    : IA_SUGGESTIONS;
-
-  // close on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      const target = e.target as Node;
-      if (triggerRef.current && !triggerRef.current.contains(target)) {
-        setShowSuggestions(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const handleSelect = (s: string) => {
-    onChange(s);
-    setShowSuggestions(false);
-    // Solo llena el input — el usuario debe presionar Buscar o Enter para ejecutar
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') { setShowSuggestions(false); onSearch(value); }
-    if (e.key === 'Escape') setShowSuggestions(false);
-  };
-
-  // Compute anchor rect from the input wrapper div
-  const [rect, setRect] = useState<DOMRect | null>(null);
-  useEffect(() => {
-    if (!showSuggestions) return;
-    const update = () => {
-      if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect());
-    };
-    update();
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
-    return () => {
-      window.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
-    };
-  }, [showSuggestions]);
-
-  return (
-    <div ref={triggerRef} style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        height: 36,
-        border: `1px solid ${showSuggestions ? INDIGO : '#D8E7FF'}`,
-        borderRadius: 4, background: '#fff',
-        paddingLeft: 10, paddingRight: 6,
-        transition: 'border-color 120ms',
-      }}>
-        <Sparkles size={14} color={INDIGO} style={{ flexShrink: 0 }} />
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          onFocus={() => setShowSuggestions(true)}
-          onKeyDown={handleKeyDown}
-          placeholder='Ej: "Depto cerca de metro en Providencia"'
-          style={{
-            flex: 1, border: 0, outline: 'none', background: 'transparent',
-            fontSize: 13, color: FG1, fontFamily: 'inherit', minWidth: 0,
-          }}
-        />
-        {value && (
-          <button
-            onMouseDown={e => { e.preventDefault(); onChange(''); inputRef.current?.focus(); }}
-            style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-          >
-            <X size={13} color={FG3} />
-          </button>
-        )}
-      </div>
-
-      {/* Portal suggestions */}
-      {showSuggestions && filtered.length > 0 && rect && createPortal(
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: PANEL_Z - 1 }}
-            onMouseDown={() => setShowSuggestions(false)}
-          />
-          <div style={{
-            position: 'fixed',
-            top: rect.bottom + 4,
-            left: rect.left,
-            width: rect.width,
-            background: '#fff',
-            border: `1px solid ${DIVIDER}`,
-            borderRadius: 8,
-            boxShadow: '0 4px 20px rgba(50,0,193,0.12)',
-            zIndex: PANEL_Z,
-            overflow: 'hidden',
-          }}>
-            <div style={{ padding: '6px 12px 4px', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Sparkles size={11} color={INDIGO} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: INDIGO }}>Sugerencias IA</span>
-            </div>
-            {filtered.map((s, i) => (
-              <button
-                key={i}
-                onMouseDown={() => handleSelect(s)}
-                style={{
-                  width: '100%', textAlign: 'left',
-                  padding: '8px 16px',
-                  border: 0, background: 'transparent',
-                  fontSize: 13, color: FG1,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', gap: 8,
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = INDIGO_50)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                <Search size={12} color={FG3} style={{ flexShrink: 0 }} />
-                {s}
-              </button>
-            ))}
-          </div>
-        </>,
-        document.body
-      )}
-    </div>
   );
 }
 
@@ -536,14 +352,10 @@ function CommuneInput({ selected, onChange }: { selected: string[]; onChange: (v
 
 export function ResultsHeader({
   viewMode, onViewChange, filters, onFiltersChange,
-  query, resultCount: _resultCount, onOpenFilters,
-  savedSearch, onSaveSearch, onSearch,
-  advancedFilters, onAdvancedFiltersChange, initialSearchMode = 'clasico',
+  resultCount: _resultCount, onOpenFilters,
+  savedSearch, onSaveSearch,
+  advancedFilters, onAdvancedFiltersChange, assistant,
 }: ResultsHeaderProps) {
-  const [searchMode, setSearchMode] = useState<'ia' | 'clasico'>(initialSearchMode);
-  const [iaText, setIaText] = useState(query || '');
-  const [iaLoading, setIaLoading] = useState(false);
-  const [iaLoadingStep, setIaLoadingStep] = useState(0);
 
   // Chips: una por criterio activo (la operación se muestra en su selector). Fuente única: search/criteria.
   const criteria = { ...filters, ...(advancedFilters ?? {}) } as Filters & AdvancedFilters;
@@ -566,25 +378,6 @@ export function ResultsHeader({
     : 'Operación';
   const typeLabel = propertyTypePlural(filters.propertyType);
 
-  const handleIaSearch = (q: string) => {
-    const text = q.trim();
-    if (!text || iaLoading) return;
-    setIaText(text);
-    setIaLoading(true);
-    setIaLoadingStep(0);
-
-    const t1 = setTimeout(() => setIaLoadingStep(1), STEP_TIMESTAMPS[1]);
-    const t2 = setTimeout(() => setIaLoadingStep(2), STEP_TIMESTAMPS[2]);
-    const t3 = setTimeout(() => setIaLoadingStep(3), STEP_TIMESTAMPS[3]);
-    const t4 = setTimeout(() => {
-      setIaLoading(false);
-      setIaLoadingStep(0);
-      onSearch?.(text);
-    }, SEARCH_TOTAL_MS);
-
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
-  };
-
   const rowBase: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 8,
     flexWrap: 'nowrap', overflowX: 'auto',
@@ -601,96 +394,42 @@ export function ResultsHeader({
       {/* ── Row 1: main bar ── */}
       <div className="seo-container" style={{ ...rowBase, paddingTop: 10, paddingBottom: 10 }}>
 
-        <ModeToggle mode={searchMode} onChange={setSearchMode} />
+        <CommuneInput
+          selected={filters.comunas}
+          onChange={comunas => onFiltersChange({ comunas })}
+        />
 
-        {searchMode === 'ia' ? (
-          iaLoading ? (
-            /* ── Compact inline loader ── */
-            <div
-              role="status"
-              aria-live="polite"
-              style={{
-                flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8,
-                height: 36, borderRadius: 4,
-                border: `1px solid ${INDIGO}`,
-                background: INDIGO_50,
-                padding: '0 12px',
-                overflow: 'hidden',
-              }}
-            >
-              <Sparkles
-                size={13}
-                color={INDIGO}
-                style={{ flexShrink: 0, animation: 'ia-sparkle-pulse 1.2s ease-in-out infinite' }}
-              />
-              <span style={{ fontSize: 12, fontWeight: 700, color: INDIGO }}>
-                {LOADING_STEPS_SEO[iaLoadingStep]}
-              </span>
-            </div>
-          ) : (
-            <>
-              <IaSearchInput
-                value={iaText}
-                onChange={setIaText}
-                onSearch={handleIaSearch}
-              />
-              <button
-                onClick={() => handleIaSearch(iaText)}
-                disabled={iaLoading}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '0 16px', height: 36,
-                  background: MINT, color: INDIGO,
-                  border: 0, borderRadius: 4,
-                  fontSize: 13, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  flexShrink: 0, whiteSpace: 'nowrap',
-                }}
-              >
-                <Search size={13} />
-                Buscar
-              </button>
-            </>
-          )
-        ) : (
-          <>
-            <CommuneInput
-              selected={filters.comunas}
-              onChange={comunas => onFiltersChange({ comunas })}
+        <Dropdown label={opLabel} active={filters.operation !== null} minWidth={160}>
+          <DropdownItem
+            label="Comprar"
+            active={filters.operation === 'venta'}
+            onClick={() => onFiltersChange({ operation: filters.operation === 'venta' ? null : 'venta' as OperationType })}
+          />
+          <DropdownItem
+            label="Arrendar"
+            active={filters.operation === 'arriendo'}
+            onClick={() => onFiltersChange({ operation: filters.operation === 'arriendo' ? null : 'arriendo' as OperationType })}
+          />
+        </Dropdown>
+
+        <Dropdown label={typeLabel} active={filters.propertyType !== null} minWidth={160}>
+          <DropdownItem
+            label="Todos los tipos"
+            active={filters.propertyType === null}
+            onClick={() => onFiltersChange({ propertyType: null })}
+          />
+          {(['departamento', 'casa', 'oficina'] as PropertyType[]).map(t => (
+            <DropdownItem
+              key={t}
+              label={t === 'departamento' ? 'Departamentos' : t === 'casa' ? 'Casas' : 'Oficinas'}
+              active={filters.propertyType === t}
+              onClick={() => onFiltersChange({ propertyType: filters.propertyType === t ? null : t })}
             />
-
-            <Dropdown label={opLabel} active={filters.operation !== null} minWidth={160}>
-              <DropdownItem
-                label="Comprar"
-                active={filters.operation === 'venta'}
-                onClick={() => onFiltersChange({ operation: filters.operation === 'venta' ? null : 'venta' as OperationType })}
-              />
-              <DropdownItem
-                label="Arrendar"
-                active={filters.operation === 'arriendo'}
-                onClick={() => onFiltersChange({ operation: filters.operation === 'arriendo' ? null : 'arriendo' as OperationType })}
-              />
-            </Dropdown>
-
-            <Dropdown label={typeLabel} active={filters.propertyType !== null} minWidth={160}>
-              <DropdownItem
-                label="Todos los tipos"
-                active={filters.propertyType === null}
-                onClick={() => onFiltersChange({ propertyType: null })}
-              />
-              {(['departamento', 'casa', 'oficina'] as PropertyType[]).map(t => (
-                <DropdownItem
-                  key={t}
-                  label={t === 'departamento' ? 'Departamentos' : t === 'casa' ? 'Casas' : 'Oficinas'}
-                  active={filters.propertyType === t}
-                  onClick={() => onFiltersChange({ propertyType: filters.propertyType === t ? null : t })}
-                />
-              ))}
-            </Dropdown>
-          </>
-        )}
+          ))}
+        </Dropdown>
 
         <button
+          type="button"
           onClick={onOpenFilters}
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
@@ -716,8 +455,33 @@ export function ResultsHeader({
           )}
         </button>
 
+        {assistant && (
+          // Acceso único al asistente conversacional. En Mapa y Dividida queda inactivo hasta integrar el panel.
+          <button
+            type="button"
+            onClick={assistant.onOpen}
+            aria-expanded={assistant.available ? assistant.open : undefined}
+            aria-disabled={!assistant.available || undefined}
+            title={assistant.available ? undefined : 'Disponible en la vista Lista'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '0 12px', height: 36,
+              border: `1px solid ${INDIGO}`, borderRadius: 4,
+              background: assistant.open ? INDIGO : '#fff',
+              color: assistant.open ? '#fff' : INDIGO,
+              opacity: assistant.available ? 1 : 0.55,
+              fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+              flexShrink: 0, whiteSpace: 'nowrap',
+            }}
+          >
+            <Sparkles size={13} aria-hidden="true" />
+            Asistente{assistant.active && !assistant.open ? ' (conversación activa)' : ''}
+          </button>
+        )}
+
         <div style={{
-          marginLeft: searchMode === 'ia' ? 60 : 'auto',
+          marginLeft: 'auto',
           display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
         }}>
           <ViewSelector viewMode={viewMode} onViewChange={onViewChange} />
@@ -725,8 +489,8 @@ export function ResultsHeader({
         </div>
       </div>
 
-      {/* ── Row 2: active filter chips — ocultos mientras el loader está activo (genérico, sin criterios) ── */}
-      {!iaLoading && chips.length > 0 && (
+      {/* ── Row 2: active filter chips ── */}
+      {chips.length > 0 && (
         <div className="seo-container" style={{ ...rowBase, paddingTop: 0, paddingBottom: 10, gap: 6, flexWrap: 'wrap' }}>
           {chips.map((chip, i) => (
             <ActiveChip key={i} label={chip.label} onRemove={chip.onRemove} />
@@ -734,19 +498,6 @@ export function ResultsHeader({
         </div>
       )}
 
-      {/* Progress bar at bottom of header during IA loading */}
-      {iaLoading && (
-        <div style={{ height: 3, background: INDIGO_50, overflow: 'hidden' }}>
-          <div
-            className="ia-progress-bar"
-            style={{
-              height: '100%', width: '30%',
-              background: `linear-gradient(90deg, ${INDIGO}, ${MINT})`,
-              animation: 'ia-progress 1.1s ease-in-out infinite',
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

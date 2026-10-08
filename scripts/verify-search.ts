@@ -8,6 +8,7 @@ import type { SearchCriteria } from '../src/search/criteria.ts';
 import { DEFAULT_CRITERIA, filterProperties } from '../src/search/criteria.ts';
 import { initialSearchState, searchReducer } from '../src/search/searchState.ts';
 import { bedroomInfo, bedroomsText } from '../src/data/propertyFacts.ts';
+import { maskPersonalData, respond } from '../src/assistant/engine.ts';
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = '') {
@@ -97,6 +98,38 @@ check('Cambiar a arriendo quita el tope de compra', s.applied.budgetCap === null
 
 s = searchReducer(s, { type: 'draft/start', from: 'operationAndType' });
 check('Borrador desde el Home: solo operación y tipo', s.draft?.comunas.length === 0 && s.draft?.operation === 'arriendo');
+
+
+// ── Asistente (motor simulado) ──
+console.log('\n── Asistente (respuestas simuladas por reglas)');
+const rut = maskPersonalData('Mi RUT es 12.345.678-9 y gano 1.800.000');
+check('RUT e ingresos se ocultan antes de guardar', rut.masked && !/\d/.test(rut.text), rut.text);
+check('Texto sin datos personales no se altera', !maskPersonalData('2 dormitorios en Ñuñoa').masked);
+
+const applied = C({ operation: 'venta', propertyType: 'departamento', comunas: ['Providencia'] });
+const appliedCopy = JSON.stringify(applied);
+const homeDraft = C({ operation: 'venta', propertyType: 'departamento' });
+const r1 = respond('2 dormitorios en Ñuñoa cerca del metro', false, { draft: homeDraft, applied, view: 'inicio', data: DATA, turn: 0 });
+check('Conversar no modifica la búsqueda aplicada', JSON.stringify(applied) === appliedCopy);
+check('Propone un borrador con los criterios del mensaje',
+  r1.reply.kind === 'search' && r1.draft?.comunas.join() === 'Ñuñoa' && r1.draft?.bedrooms === 2 && r1.draft?.metroMaxMin === 10,
+  r1.reply.kind === 'search' ? r1.reply.text : r1.reply.kind);
+check('"Ver N resultados" coincide con el filtrado real',
+  r1.reply.kind === 'search' && r1.reply.total === filterProperties(DATA, r1.draft!).length && r1.reply.resultIds.length <= 10);
+check('Desde el inicio, el borrador no hereda las comunas aplicadas', !r1.draft?.comunas.includes('Providencia'));
+
+const r2 = respond('casa en Vitacura con 6 dormitorios y terraza', false, { draft: homeDraft, applied, view: 'inicio', data: DATA, turn: 0 });
+check('Sin coincidencias: propone soltar criterios con resultados',
+  r2.reply.kind === 'no-results' && r2.reply.actions.length > 0
+  && r2.reply.actions.every(a => a.kind === 'propose' && filterProperties(DATA, a.criteria).length > 0),
+  r2.reply.kind === 'no-results' ? r2.reply.actions.map(a => a.label).join(' · ') : r2.reply.kind);
+
+const r3 = respond('mejor empecemos de cero', false, { draft: r1.draft!, applied, view: 'resultados', data: DATA, turn: 1 });
+check('Empezar de cero reinicia solo el borrador y ofrece limpiar filtros (explícito)',
+  r3.draft?.comunas.length === 0 && r3.reply.kind === 'text' && !!r3.reply.actions?.some(a => a.kind === 'clear-applied'));
+
+const r4 = respond('lo que sea', true, { draft: homeDraft, applied, view: 'inicio', data: DATA, turn: 0 });
+check('Con datos personales responde sin usarlos ni cambiar el borrador', r4.reply.kind === 'text' && r4.draft === undefined);
 
 // ── Conteos para revisar en la interfaz ──
 console.log('\n── Conteos esperados en la interfaz (Lista, Mapa y Dividida deben mostrar el mismo número)');

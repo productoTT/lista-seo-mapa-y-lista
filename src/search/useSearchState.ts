@@ -30,6 +30,7 @@ export function useSearchState(base: Partial<SearchCriteria> = {}) {
     draft: state.draft,
     startDraft: (from: 'applied' | 'operationAndType') => dispatch({ type: 'draft/start', from }),
     updateDraft: (patch: Partial<SearchCriteria>) => dispatch({ type: 'draft/update', patch }),
+    setDraft: (criteria: SearchCriteria) => dispatch({ type: 'draft/set', criteria }),
     discardDraft: () => dispatch({ type: 'draft/discard' }),
     applyDraft: () => dispatch({ type: 'draft/apply' }),
   }), [state, update, replace]);

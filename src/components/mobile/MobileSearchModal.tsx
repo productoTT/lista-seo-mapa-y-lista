@@ -1,141 +1,59 @@
-import { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, Search, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Search, ChevronDown } from 'lucide-react';
 import type { Filters, AdvancedFilters, OperationType, PropertyType } from '../../types/property';
 import { DEFAULT_FILTERS, PROPERTY_TYPE_LABELS } from '../../types/property';
 import { zones_list } from '../../data/mockProperties';
 import { RangeInputs } from '../modals/AdvancedFiltersContent';
 import { SQM_PRESETS } from '../modals/filterPresets';
 import { UF_CLP } from '../../data/uf';
-import {
-  STEP_TIMESTAMPS,
-  SEARCH_TOTAL_MS,
-  extractChipsSEO,
-} from '../ia/IASearchShared';
-import { IALoadingCard } from '../ia/IALoadingCard';
 
 // Tokens del sistema de diseño (mismo valor que los colores anteriores)
 const INDIGO = 'var(--tt-indigo)';
 const INDIGO_50 = 'var(--tt-indigo-50)';
 const FG1 = 'var(--tt-ink)';
 
-export type SearchTab = 'classic' | 'ai';
-
-const AI_EXAMPLES = [
-  'Departamento en Ñuñoa, 2 dormitorios, hasta 5.000 UF',
-  'Casa en arriendo en La Reina con patio',
-  'Depto cerca de metro en Providencia',
-];
-
-
 interface MobileSearchModalProps {
   open: boolean;
-  tab: SearchTab;
-  onTabChange: (t: SearchTab) => void;
   onClose: () => void;
   filters: Filters;
   advancedFilters: AdvancedFilters;
-  query: string;
-  interpretation: null | unknown;
-  onSearch: (q: string) => void;
   onFiltersChange: (f: Partial<Filters>) => void;
   onAdvancedFiltersChange: (f: Partial<AdvancedFilters>) => void;
 }
 
+/**
+ * Buscador mobile de resultados: solo búsqueda tradicional.
+ * La pestaña "Búsqueda IA" anterior (que aplicaba filtros automáticamente) está desactivada:
+ * el asistente nuevo todavía no se integra en mobile de resultados (ver docs/home-ia-preevaluacion).
+ */
 export function MobileSearchModal({
-  open, tab, onTabChange, onClose,
-  filters, advancedFilters, query,
-  onSearch, onFiltersChange, onAdvancedFiltersChange,
+  open, onClose, filters, advancedFilters, onFiltersChange, onAdvancedFiltersChange,
 }: MobileSearchModalProps) {
-  // AI tab state
-  const [aiQuery, setAiQuery] = useState(query);
-  const [aiChips, setAiChips] = useState<string[]>([]);
-
-  // Loading state — shared with desktop logic. El loader en sí es genérico
-  // (ver IALoadingCard): aiChips solo alimenta el preview de interpretación
-  // que se muestra ANTES de buscar, mientras el usuario escribe.
-  const [loading, setLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  // Classic tab local state (only applied on Buscar)
+  // Estado local: se aplica solo al presionar Buscar
   const [localFilters, setLocalFilters] = useState<Filters>({ ...filters });
   const [localAdvanced, setLocalAdvanced] = useState<AdvancedFilters>({ ...advancedFilters });
 
-  // Sync when modal opens; always reset loading state so re-opening shows form
+  // Sincroniza al abrir
   useEffect(() => {
     if (open) {
-      setAiQuery(query);
       setLocalFilters({ ...filters });
       setLocalAdvanced({ ...advancedFilters });
-      setAiChips(query ? extractChipsSEO(query) : []);
-      cancelTimers();
-      setLoading(false);
-      setLoadingStep(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Cleanup on unmount
-  useEffect(() => () => cancelTimers(), []);
-
-  // Back button interception — closes modal (or cancels loading) before navigating
+  // Botón atrás del navegador: cierra el modal antes de navegar
   useEffect(() => {
     if (!open) return;
     window.history.pushState({ searchModal: true }, '');
-    const handler = () => {
-      cancelTimers();
-      setLoading(false);
-      onClose();
-    };
+    const handler = () => onClose();
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
   }, [open, onClose]);
 
-  function cancelTimers() {
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
-  }
-
-  const handleExampleClick = (ex: string) => {
-    setAiQuery(ex);
-    setAiChips(extractChipsSEO(ex));
-  };
-
-  const handleAISearch = () => {
-    const text = aiQuery.trim();
-    if (!text || loading) return;
-
-    setLoading(true);
-    setLoadingStep(0);
-    cancelTimers();
-
-    // Mirror exact desktop timing from STEP_TIMESTAMPS
-    const t1 = setTimeout(() => setLoadingStep(1), STEP_TIMESTAMPS[1]);
-    const t2 = setTimeout(() => setLoadingStep(2), STEP_TIMESTAMPS[2]);
-    const t3 = setTimeout(() => setLoadingStep(3), STEP_TIMESTAMPS[3]);
-    const t4 = setTimeout(() => {
-      cancelTimers();
-      setLoading(false);
-      setLoadingStep(0);
-      onSearch(text);
-      onClose();
-    }, SEARCH_TOTAL_MS);
-
-    timersRef.current = [t1, t2, t3, t4];
-  };
-
-  const handleClose = () => {
-    // Cancel in-flight loading without applying partial search
-    cancelTimers();
-    setLoading(false);
-    setLoadingStep(0);
-    onClose();
-  };
-
   const handleClassicSearch = () => {
     onFiltersChange({ ...localFilters });
     onAdvancedFiltersChange({ ...localAdvanced });
-    onSearch('');
     onClose();
   };
 
@@ -157,7 +75,6 @@ export function MobileSearchModal({
       aria-modal="true"
       aria-label="Refinar búsqueda"
     >
-      {/* Header — always visible, even during loading */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -170,7 +87,8 @@ export function MobileSearchModal({
           Refinar búsqueda
         </h2>
         <button
-          onClick={handleClose}
+          type="button"
+          onClick={onClose}
           aria-label="Cerrar buscador"
           style={{
             width: 36, height: 36,
@@ -183,173 +101,15 @@ export function MobileSearchModal({
         </button>
       </div>
 
-      {/* Tabs — always visible, even during loading */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #E5E5E5', flexShrink: 0 }}>
-        {[
-          { id: 'classic' as SearchTab, label: 'Búsqueda clásica' },
-          { id: 'ai' as SearchTab, label: 'Búsqueda IA', badge: 'Beta' },
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => !loading && onTabChange(t.id)}
-            role="tab"
-            aria-selected={tab === t.id}
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              padding: '12px 0',
-              fontSize: 13,
-              fontWeight: 700,
-              border: 'none',
-              borderBottom: `2px solid ${tab === t.id ? INDIGO : 'transparent'}`,
-              background: 'none',
-              color: tab === t.id ? INDIGO : '#666',
-              cursor: loading ? 'default' : 'pointer',
-              fontFamily: 'inherit',
-              opacity: loading && t.id !== 'ai' ? 0.5 : 1,
-              transition: 'color 0.15s',
-            }}
-          >
-            {t.id === 'ai' && <Sparkles size={13} />}
-            {t.label}
-            {t.badge && (
-              <span style={{
-                fontSize: 9, fontWeight: 700,
-                padding: '2px 5px', borderRadius: 4,
-                background: '#E8FFFB', color: '#0E7490',
-              }}>
-                {t.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-        {tab === 'ai' ? (
-          loading ? (
-            /* ── Loader card — replaces form content during processing ── */
-            <IALoadingCard step={loadingStep} />
-          ) : (
-            <AITab
-              aiQuery={aiQuery}
-              setAiQuery={val => { setAiQuery(val); setAiChips(val.trim() ? extractChipsSEO(val) : []); }}
-              aiChips={aiChips}
-              onExampleClick={handleExampleClick}
-              onSearch={handleAISearch}
-            />
-          )
-        ) : (
-          <ClassicTab
-            localFilters={localFilters}
-            setLocalFilters={setLocalFilters}
-            localAdvanced={localAdvanced}
-            setLocalAdvanced={setLocalAdvanced}
-            onSearch={handleClassicSearch}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── AI tab (form state) ────────────────────────────────────────
-
-interface AITabProps {
-  aiQuery: string;
-  setAiQuery: (q: string) => void;
-  aiChips: string[];
-  onExampleClick: (ex: string) => void;
-  onSearch: () => void;
-}
-
-function AITab({ aiQuery, setAiQuery, aiChips, onExampleClick, onSearch }: AITabProps) {
-  return (
-    <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <p style={{ fontSize: 12, fontWeight: 600, color: '#666', margin: '0 0 8px' }}>
-          Describe en lenguaje natural lo que buscas:
-        </p>
-        <textarea
-          value={aiQuery}
-          onChange={e => setAiQuery(e.target.value)}
-          placeholder='Ej: "Depto cerca de metro en Providencia"'
-          rows={3}
-          style={{
-            width: '100%',
-            padding: '12px 14px',
-            borderRadius: 12,
-            border: '1.5px solid #B2D0FF',
-            background: INDIGO_50,
-            color: FG1,
-            fontSize: 14,
-            fontFamily: 'Nunito, sans-serif',
-            outline: 'none',
-            resize: 'none',
-            boxSizing: 'border-box',
-            lineHeight: 1.5,
-          }}
+        <ClassicTab
+          localFilters={localFilters}
+          setLocalFilters={setLocalFilters}
+          localAdvanced={localAdvanced}
+          setLocalAdvanced={setLocalAdvanced}
+          onSearch={handleClassicSearch}
         />
       </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {AI_EXAMPLES.map(ex => (
-          <button
-            key={ex}
-            onClick={() => onExampleClick(ex)}
-            style={{
-              textAlign: 'left', fontSize: 13,
-              padding: '10px 14px', borderRadius: 10,
-              border: '1px solid #E5E5E5', background: '#F9F9F9',
-              color: FG1, cursor: 'pointer', fontFamily: 'inherit',
-              minHeight: 44, lineHeight: 1.4,
-            }}
-          >
-            {ex}
-          </button>
-        ))}
-      </div>
-
-      {/* Preview chips from current input */}
-      {aiChips.length > 0 && (
-        <div>
-          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#666', margin: '0 0 8px' }}>
-            Búsqueda actual interpretada:
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {aiChips.map(chip => (
-              <span key={chip} style={{
-                fontSize: 12, fontWeight: 700,
-                padding: '5px 12px', borderRadius: 20,
-                background: INDIGO_50, color: INDIGO,
-              }}>
-                {chip}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={onSearch}
-        disabled={!aiQuery.trim()}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          padding: '14px', borderRadius: 12, border: 'none',
-          background: aiQuery.trim() ? INDIGO : '#C5C5C5',
-          color: '#fff', fontSize: 15, fontWeight: 800,
-          cursor: aiQuery.trim() ? 'pointer' : 'not-allowed',
-          fontFamily: 'inherit', transition: 'background 0.15s', minHeight: 52,
-        }}
-      >
-        <Search size={16} />
-        Buscar
-      </button>
-      <div style={{ height: 120 }} />
     </div>
   );
 }

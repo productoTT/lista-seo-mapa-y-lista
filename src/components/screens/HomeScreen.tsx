@@ -3,19 +3,10 @@ import { ToctocFullHeader } from '../seo/ToctocFullHeader';
 import type { SearchCriteria } from '../../search/criteria';
 import { DEFAULT_CRITERIA } from '../../search/criteria';
 import { HomeSearch, type HomeSearchProps } from '../home/HomeSearch';
+import { COMUNAS, POPULARES } from '../../data/comunas';
 
 // ── Constants ─────────────────────────────────────────────
 
-// Comunas reconocidas por el combobox de ubicación.
-const COMMUNES = [
-  'Ñuñoa', 'Providencia', 'Las Condes', 'Vitacura', 'Santiago Centro',
-  'Miraflores', 'La Florida', 'Peñalolén', 'La Reina', 'Macul',
-  'San Miguel', 'Estación Central', 'Maipú', 'Pudahuel', 'Quilicura',
-  'Lo Barnechea', 'Huechuraba', 'Conchalí', 'Recoleta', 'Independencia',
-];
-
-// "Búsquedas sugeridas" del combobox cuando no hay recientes (comunas populares).
-const POPULAR = ['Ñuñoa', 'Providencia', 'Las Condes'];
 
 const FREQUENT: { label: string; criteria: Partial<SearchCriteria> }[] = [
   { label: 'Departamentos en venta en Ñuñoa', criteria: { operation: 'venta', propertyType: 'departamento', comunas: ['Ñuñoa'] } },
@@ -31,13 +22,15 @@ const INDIGO = 'var(--tt-indigo)';
 type HomeScreenProps = Omit<HomeSearchProps, 'comunas' | 'popular'> & {
   /** Ejecuta una búsqueda completa (búsquedas frecuentes). */
   onRunSearch: (criteria: SearchCriteria) => void;
+  /** Botón "Asistente IA" de la cabecera: abre el mismo asistente. */
+  onOpenHeaderAssistant: () => void;
 };
 
 /**
  * Home: buscador tradicional con entrada progresiva al asistente (bloque 2).
  * Las pestañas Clásica/IA y la búsqueda IA que aplicaba filtros automáticamente se reemplazaron.
  */
-export function HomeScreen({ onRunSearch, ...search }: HomeScreenProps) {
+export function HomeScreen({ onRunSearch, onOpenHeaderAssistant, ...search }: HomeScreenProps) {
   const { onSearch } = search;
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#F5F5F5', fontFamily: 'inherit' }}>
@@ -61,7 +54,7 @@ export function HomeScreen({ onRunSearch, ...search }: HomeScreenProps) {
       </div>
 
       {/* ── Full TOCTOC header ────────────────────────────── */}
-      <ToctocFullHeader onGoHome={() => {}} />
+      <ToctocFullHeader onGoHome={() => {}} onOpenAssistant={onOpenHeaderAssistant} />
 
       {/* ── Hero ─────────────────────────────────────────── */}
       <section
@@ -88,7 +81,7 @@ export function HomeScreen({ onRunSearch, ...search }: HomeScreenProps) {
         </h1>
 
 
-        <HomeSearch {...search} comunas={COMMUNES} popular={POPULAR} />
+        <HomeSearch {...search} comunas={COMUNAS} popular={POPULARES} />
       </section>
 
 

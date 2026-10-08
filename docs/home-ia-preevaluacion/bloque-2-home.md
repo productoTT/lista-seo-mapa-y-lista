@@ -1,5 +1,7 @@
 # Bloque 2: Home y entradas al asistente
 
+> **Actualización (bloque 3):** la vista previa del traspaso se reemplazó por el asistente conversacional. Ver `bloque-3-asistente.md`.
+
 Rama `home-ia-preevaluacion`. Es un experimento: no se integra a `main`.
 
 ## Qué cambió

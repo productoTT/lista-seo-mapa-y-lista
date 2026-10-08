@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Filters, AdvancedFilters, ViewMode, SearchInterpretation, SortOption } from '../../types/property';
+import type { Filters, AdvancedFilters, ViewMode, SortOption } from '../../types/property';
 import type { Property } from '../../types/property';
 import { DEFAULT_FILTERS, DEFAULT_ADVANCED_FILTERS } from '../../types/property';
 import { MobileResultsView } from '../mobile/MobileResultsView';
@@ -12,7 +12,6 @@ import { ListView } from './ListView';
 import { MapViewMode } from './MapViewMode';
 import { DividedView } from './SplitViewMode';
 import { PropertyBottomSheet } from '../property/PropertyBottomSheet';
-import { SemanticSearchModal } from '../modals/SemanticSearchModal';
 import { FiltersModal } from '../modals/FiltersModal';
 import { FiltersDrawer } from '../modals/FiltersDrawer';
 import { TweaksPanel } from '../ui/TweaksPanel';
@@ -39,33 +38,29 @@ interface ResultsScreenProps {
   onViewChange: (v: ViewMode) => void;
   filters: Filters;
   onFiltersChange: (f: Partial<Filters>) => void;
-  interpretation: SearchInterpretation | null;
-  query: string;
   savedSearch: boolean;
   onSaveSearch: () => void;
   savedProperties: Set<string>;
   onSaveProperty: (id: string) => void;
   onGoHome: () => void;
-  onSearch: (q: string) => void;
   onViewFullProperty: (id: string) => void;
   onContact: () => void;
   sort: SortOption;
   onSortChange: (s: SortOption) => void;
   advancedFilters: AdvancedFilters;
   onAdvancedFiltersChange: (f: Partial<AdvancedFilters>) => void;
-  /** Modo inicial de la cabecera: "clasico" al llegar desde la búsqueda tradicional. */
-  initialSearchMode?: 'ia' | 'clasico';
+  /** Asistente conversacional único (botón de la cabecera de resultados y de la cabecera TOCTOC). */
+  assistant?: { available: boolean; open: boolean; active: boolean; onOpen: () => void };
 }
 
 export function ResultsScreen({
   properties, viewMode, onViewChange, filters, onFiltersChange,
-  interpretation, query, savedSearch, onSaveSearch,
-  savedProperties, onSaveProperty, onGoHome, onSearch,
+  savedSearch, onSaveSearch,
+  savedProperties, onSaveProperty, onGoHome, assistant,
   onViewFullProperty, onContact, sort, onSortChange,
-  advancedFilters, onAdvancedFiltersChange, initialSearchMode = 'clasico',
+  advancedFilters, onAdvancedFiltersChange,
 }: ResultsScreenProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [showSemanticSearch, setShowSemanticSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filterPresentation, setFilterPresentation] = useState<FilterPresentation>('drawer');
   const [splitLayout, setSplitLayout] = useState<SplitLayout>('2col-wide-map');
@@ -119,7 +114,7 @@ export function ResultsScreen({
         properties={properties}
         filters={filters}
         onFiltersChange={onFiltersChange}
-        query={query}
+        query=""
         savedProperties={savedProperties}
         onSaveProperty={onSaveProperty}
         onGoHome={onGoHome}
@@ -128,8 +123,7 @@ export function ResultsScreen({
         onSortChange={onSortChange}
         advancedFilters={advancedFilters}
         onAdvancedFiltersChange={onAdvancedFiltersChange}
-        onSearch={onSearch}
-        interpretation={interpretation}
+        interpretation={null}
       />
     );
   }
@@ -150,6 +144,7 @@ export function ResultsScreen({
       {/* Full TOCTOC header */}
       <ToctocFullHeader
         onGoHome={onGoHome}
+        onOpenAssistant={assistant?.onOpen}
         activeNav={filters.operation === 'arriendo' ? 'Arrendar' : 'Comprar'}
       />
 
@@ -162,16 +157,13 @@ export function ResultsScreen({
         onViewChange={v => { onViewChange(v); preview.close(); }}
         filters={filters}
         onFiltersChange={onFiltersChange}
-        query={query}
         resultCount={properties.length}
-        onOpenSemanticSearch={() => setShowSemanticSearch(true)}
         onOpenFilters={() => setShowFilters(true)}
         savedSearch={savedSearch}
         onSaveSearch={onSaveSearch}
-        onSearch={onSearch}
+        assistant={assistant}
         advancedFilters={advancedFilters}
         onAdvancedFiltersChange={onAdvancedFiltersChange}
-        initialSearchMode={initialSearchMode}
       />
 
       {/* Content */}
@@ -254,14 +246,6 @@ export function ResultsScreen({
       <ToctocFooter />
 
       {/* Modals */}
-      {showSemanticSearch && (
-        <SemanticSearchModal
-          onClose={() => setShowSemanticSearch(false)}
-          onSearch={q => { onSearch(q); setShowSemanticSearch(false); }}
-          currentInterpretation={interpretation}
-          currentQuery={query}
-        />
-      )}
       {filterPresentation === 'drawer' ? (
         <FiltersDrawer
           open={showFilters}

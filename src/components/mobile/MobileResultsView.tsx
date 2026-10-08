@@ -7,7 +7,6 @@ import { MobileMapCard } from './MobileMapCard';
 import type { SheetState } from './MobileBottomSheet';
 import { MobileBottomSheet, SHEET_PEEK_HEIGHT } from './MobileBottomSheet';
 import { MobileSearchModal } from './MobileSearchModal';
-import type { SearchTab } from './MobileSearchModal';
 import { FiltersDrawer } from '../modals/FiltersDrawer';
 
 // Group threshold: ~200m radius
@@ -34,7 +33,6 @@ interface MobileResultsViewProps {
   onSortChange: (s: SortOption) => void;
   advancedFilters: AdvancedFilters;
   onAdvancedFiltersChange: (f: Partial<AdvancedFilters>) => void;
-  onSearch: (q: string) => void;
   interpretation: SearchInterpretation | null;
 }
 
@@ -42,14 +40,13 @@ export function MobileResultsView({
   properties, filters, onFiltersChange, query,
   savedProperties, onSaveProperty, onGoHome, onViewFullProperty,
   sort, onSortChange, advancedFilters, onAdvancedFiltersChange,
-  onSearch, interpretation,
+  interpretation,
 }: MobileResultsViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [sheetState, setSheetState] = useState<SheetState>('collapsed');
   const [showFilters, setShowFilters] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [searchTab, setSearchTab] = useState<SearchTab>('ai');
   const [cardProperties, setCardProperties] = useState<Property[]>([]);
 
   // Intercept back button
@@ -194,14 +191,9 @@ export function MobileResultsView({
       {/* ── Search modal — full viewport ──────────────────────── */}
       <MobileSearchModal
         open={showSearch}
-        tab={searchTab}
-        onTabChange={setSearchTab}
         onClose={() => setShowSearch(false)}
         filters={filters}
         advancedFilters={advancedFilters}
-        query={query}
-        interpretation={interpretation}
-        onSearch={onSearch}
         onFiltersChange={onFiltersChange}
         onAdvancedFiltersChange={onAdvancedFiltersChange}
       />

@@ -2,6 +2,8 @@ import logoSrc from '../../assets/logo-toctoc.svg';
 
 interface ToctocFullHeaderProps {
   onGoHome: () => void;
+  /** Abre el asistente conversacional (el mismo que el resto de los accesos). */
+  onOpenAssistant?: () => void;
   activeNav?: string;
 }
 
@@ -14,7 +16,7 @@ const NAV_ITEMS = [
   { label: 'Inversionista', caret: false },
 ];
 
-export function ToctocFullHeader({ onGoHome, activeNav = 'Comprar' }: ToctocFullHeaderProps) {
+export function ToctocFullHeader({ onGoHome, onOpenAssistant, activeNav = 'Comprar' }: ToctocFullHeaderProps) {
   return (
     <div style={{ background: '#fff', flexShrink: 0, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
 
@@ -55,6 +57,8 @@ export function ToctocFullHeader({ onGoHome, activeNav = 'Comprar' }: ToctocFull
           {/* Asistente IA button */}
           <div style={{ marginLeft: 8, position: 'relative' }}>
             <button
+              type="button"
+              onClick={onOpenAssistant}
               style={{
                 border: '1.5px solid #3200C1',
                 borderRadius: 20,

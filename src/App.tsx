@@ -1,73 +1,22 @@
-import { useState, useCallback, useMemo } from 'react';
-import type { Screen, ViewMode, SearchInterpretation, Filters, SortOption } from './types/property';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import type { Screen, ViewMode, SortOption } from './types/property';
 import { mockProperties } from './data/mockProperties';
 import type { SearchCriteria } from './search/criteria';
-import { DEFAULT_CRITERIA, criteriaIdentity, filterProperties } from './search/criteria';
+import { DEFAULT_CRITERIA, criteriaIdentity, criterionLabel, diffCriteria, filterProperties, removalPatch } from './search/criteria';
 import { useSearchState } from './search/useSearchState';
-import type { AssistantHandoff, AssistantEntry } from './assistant/handoff';
+import type { AssistantEntry, AssistantView } from './assistant/handoff';
 import { comunaPrefill } from './assistant/handoff';
-import { AssistantHandoffPanel } from './components/assistant/AssistantHandoffPanel';
-
-const MAX_RECENTS = 5;
+import { useAssistant } from './assistant/useAssistant';
+import { AssistantPanel } from './components/assistant/AssistantPanel';
+import { AssistantPill } from './components/assistant/AssistantPill';
+import { ActionToast, type ToastData } from './components/assistant/ActionToast';
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ResultsScreen } from './components/results/ResultsScreen';
 import { PropertyFullScreen } from './components/screens/PropertyFullScreen';
 import { Snackbar } from './components/ui/Snackbar';
+import { useIsMobile } from './hooks/useIsMobile';
 
-const ZONES = ['ñuñoa', 'providencia', 'las condes', 'vitacura', 'santiago centro', 'santiago', 'miraflores', 'la florida', 'peñalolén', 'la reina'];
-const ZONE_DISPLAY: Record<string, string> = {
-  'ñuñoa': 'Ñuñoa', 'providencia': 'Providencia', 'las condes': 'Las Condes',
-  'vitacura': 'Vitacura', 'santiago': 'Santiago Centro', 'miraflores': 'Miraflores',
-  'la florida': 'La Florida', 'peñalolén': 'Peñalolén', 'la reina': 'La Reina',
-  'santiago centro': 'Santiago Centro',
-};
-
-function parseQuery(q: string): SearchInterpretation {
-  const lower = q.toLowerCase();
-  const interp: SearchInterpretation = { query: q };
-
-  if (lower.includes('arriend') || lower.includes('alquil')) {
-    interp.operation = 'Arriendo';
-  } else {
-    interp.operation = 'Comprar';
-  }
-
-  if (lower.includes('depto') || lower.includes('departamento') || lower.includes('dpto')) {
-    interp.propertyType = 'Departamento';
-  } else if (lower.includes('casa')) {
-    interp.propertyType = 'Casa';
-  } else if (lower.includes('oficina')) {
-    interp.propertyType = 'Oficina';
-  }
-
-  for (const z of ZONES) {
-    if (lower.includes(z)) { interp.zone = ZONE_DISPLAY[z] || z; break; }
-  }
-
-  const bedMatch = lower.match(/(\d)\s*dorm/);
-  if (bedMatch) interp.bedrooms = `${bedMatch[1]} dormitorios`;
-
-  const ufMatch = lower.match(/(\d[\d.]*)\s*uf/i);
-  if (ufMatch) {
-    const raw = ufMatch[1].replace(/\./g, '');
-    interp.maxPrice = `Hasta UF ${parseInt(raw).toLocaleString('es-CL')}`;
-  }
-
-  return interp;
-}
-
-function applyInterpretation(interp: SearchInterpretation): Partial<Filters> {
-  const f: Partial<Filters> = {};
-  f.operation = interp.operation === 'Arriendo' ? 'arriendo' : 'venta';
-  if (interp.propertyType === 'Departamento') f.propertyType = 'departamento';
-  else if (interp.propertyType === 'Casa') f.propertyType = 'casa';
-  else if (interp.propertyType === 'Oficina') f.propertyType = 'oficina';
-  if (interp.zone) f.comunas = [interp.zone];
-  // "2 dormitorios" se interpreta como 2 o más (mismo criterio que los filtros).
-  if (interp.bedrooms) { const m = interp.bedrooms.match(/(\d)/); if (m) f.bedrooms = parseInt(m[1]); }
-  if (interp.maxPrice) { const m = interp.maxPrice.replace(/\./g, '').match(/(\d+)/); if (m) f.priceMaxUF = parseInt(m[1]); }
-  return f;
-}
+const MAX_RECENTS = 5;
 
 function sortProps(props: typeof mockProperties, s: SortOption) {
   const arr = [...props];
@@ -80,139 +29,219 @@ function sortProps(props: typeof mockProperties, s: SortOption) {
   }
 }
 
+/**
+ * Dónde está integrado el panel del asistente (bloque 3): Home (desktop y mobile), Lista desktop y ficha desktop.
+ * Pendiente: Mapa, Dividida y resultados mobile (D4/D5). Ahí los accesos avisan y el panel se minimiza.
+ */
+function assistantAvailableIn(screen: Screen, viewMode: ViewMode, isMobile: boolean): boolean {
+  if (screen === 'home') return true;
+  if (isMobile) return false;
+  if (screen === 'results') return viewMode === 'lista';
+  return screen === 'property-full';
+}
+
+const toView = (s: Screen): AssistantView => (s === 'home' ? 'inicio' : s === 'results' ? 'resultados' : 'ficha');
+
+/** "agrega 2+ dorm.; quita Ñuñoa; cambia Comprar → Arrendar" */
+function describeChanges(prev: SearchCriteria, next: SearchCriteria): string {
+  return diffCriteria(prev, next).map(c =>
+    c.kind === 'add' ? `agrega ${criterionLabel(next, c.key)}`
+      : c.kind === 'remove' ? `quita ${criterionLabel(prev, c.key)}`
+      : `cambia ${criterionLabel(prev, c.key)} → ${criterionLabel(next, c.key)}`,
+  ).join('; ');
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [viewMode, setViewMode] = useState<ViewMode>('lista');
-  const [query, setQuery] = useState('');
-  const [interpretation, setInterpretation] = useState<SearchInterpretation | null>(null);
+  const isMobile = useIsMobile();
   // Valores iniciales del buscador del Home: Comprar · Departamento.
   const search = useSearchState({ operation: 'venta', propertyType: 'departamento' });
-  const { criteria, update: updateCriteria, reset: resetCriteria } = search;
+  const { criteria } = search;
   // Búsquedas efectivamente ejecutadas (la más reciente primero). Solo en memoria.
   const [recents, setRecents] = useState<SearchCriteria[]>([]);
-  const [handoff, setHandoff] = useState<AssistantHandoff | null>(null);
   const [sort, setSort] = useState<SortOption>('relevant');
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [savedSearch, setSavedSearch] = useState(false);
   const [savedProperties, setSavedProperties] = useState<Set<string>>(new Set());
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+  const [toast, setToast] = useState<ToastData | null>(null);
+  const pillRef = useRef<HTMLButtonElement>(null);
 
-  const showSnack = useCallback((msg: string) => {
-    setSnackbar({ visible: true, message: msg });
-  }, []);
+  const showSnack = useCallback((msg: string) => setSnackbar({ visible: true, message: msg }), []);
+  const showToast = useCallback((message: string, action?: ToastData['action']) => setToast({ id: Date.now(), message, action }), []);
+  const hideToast = useCallback(() => setToast(null), []);
 
-  const startSearch = useCallback((q: string) => {
-    const interp = parseQuery(q);
-    setQuery(q);
-    setInterpretation(interp);
-    // Flujo IA heredado (se reemplaza en el bloque del asistente): aplica directo, con origen "asistente".
-    updateCriteria(applyInterpretation(interp), 'asistente');
-    setScreen('results');
-  }, [updateCriteria]);
+  const view = toView(screen);
+  const available = assistantAvailableIn(screen, viewMode, isMobile);
+  const assistant = useAssistant({
+    data: mockProperties, view, applied: criteria, draft: search.draft,
+    setDraft: search.setDraft, discardDraft: search.discardDraft,
+  });
+
+  // Al minimizar, el foco vuelve al ícono flotante (spec §21: retorno del foco).
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !assistant.open) pillRef.current?.focus();
+    wasOpen.current = assistant.open;
+  }, [assistant.open]);
 
   const recordRecent = useCallback((c: SearchCriteria) => {
     const id = criteriaIdentity(c);
     setRecents(prev => [c, ...prev.filter(r => criteriaIdentity(r) !== id)].slice(0, MAX_RECENTS));
   }, []);
 
+  // ── Navegación: deja nota en el hilo y minimiza si el destino no tiene el panel integrado ──
+
+  const navigate = useCallback((next: Screen, opts: { viewMode?: ViewMode; propertyTitle?: string } = {}) => {
+    const vm = opts.viewMode ?? viewMode;
+    if (opts.viewMode) setViewMode(opts.viewMode);
+    setScreen(next);
+    if (next !== screen || next === 'property-full') {
+      const where = next === 'home' ? 'el inicio' : next === 'results' ? 'tus resultados' : `la ficha de ${opts.propertyTitle ?? 'la propiedad'}`;
+      assistant.addNote(`Ahora estás en ${where}.`);
+    }
+    if (assistant.open && !assistantAvailableIn(next, vm, isMobile)) {
+      assistant.minimize();
+      assistant.addNote('El asistente se minimizó: todavía no está integrado en esta vista.');
+    }
+  }, [assistant, screen, viewMode, isMobile]);
+
+  const changeViewMode = useCallback((v: ViewMode) => {
+    setViewMode(v);
+    if (assistant.open && !assistantAvailableIn(screen, v, isMobile)) {
+      assistant.minimize();
+      showToast('El asistente se minimizó: en Mapa y Dividida todavía no está integrado. Tu conversación se conserva.');
+    }
+  }, [assistant, screen, isMobile, showToast]);
+
+  // ── Ediciones directas de la búsqueda (anotadas en el hilo si hay conversación) ──
+
+  const noteManualChange = useCallback((prev: SearchCriteria, next: SearchCriteria) => {
+    const changes = describeChanges(prev, next);
+    if (changes && assistant.hasConversation) {
+      assistant.addNote(`Cambiaste tus filtros: ${changes}. Sigo a partir de ahí.`);
+      search.setDraft(next);
+    }
+  }, [assistant, search]);
+
+  const editCriteria = useCallback((patch: Partial<SearchCriteria>) => {
+    search.update(patch, 'usuario');
+    noteManualChange(criteria, { ...criteria, ...patch });
+  }, [criteria, search, noteManualChange]);
+
+  const replaceAllCriteria = useCallback((next: SearchCriteria) => {
+    search.reset(next);
+    noteManualChange(criteria, next);
+  }, [criteria, search, noteManualChange]);
+
   /** Ejecuta la búsqueda aplicada (con un cambio opcional) y abre resultados. */
   const runSearch = useCallback((patch: Partial<SearchCriteria> = {}) => {
-    updateCriteria(patch, 'usuario');
+    editCriteria(patch);
     recordRecent({ ...criteria, ...patch });
-    setInterpretation(null);
-    setQuery('');
-    setHandoff(null);
-    setScreen('results');
-  }, [criteria, updateCriteria, recordRecent]);
+    navigate('results');
+  }, [criteria, editCriteria, recordRecent, navigate]);
 
   /** Reemplaza la búsqueda completa (recientes y búsquedas frecuentes) y la ejecuta. */
   const runFullSearch = useCallback((c: SearchCriteria) => {
-    resetCriteria(c);
+    replaceAllCriteria(c);
     recordRecent(c);
-    setInterpretation(null);
-    setQuery('');
-    setHandoff(null);
-    setScreen('results');
-  }, [resetCriteria, recordRecent]);
+    navigate('results');
+  }, [replaceAllCriteria, recordRecent, navigate]);
 
-  /**
-   * Traspaso al asistente (se construye en el bloque 3). Desde el inicio, el borrador parte solo con
-   * operación y tipo. No interpreta el texto ni cambia la búsqueda aplicada.
-   */
-  const openAssistant = useCallback((o: { firstMessage?: string; comuna?: string; entry: AssistantEntry }) => {
-    search.startDraft('operationAndType');
-    setHandoff({
-      entry: o.entry,
-      firstMessage: o.firstMessage,
-      prefill: o.comuna ? comunaPrefill(o.comuna) : o.firstMessage ? undefined : '',
-      context: {
-        view: 'inicio',
-        draft: { ...DEFAULT_CRITERIA, operation: criteria.operation, propertyType: criteria.propertyType },
+  // ── Asistente: uno solo para todos los accesos ──
+
+  const unavailableMessage = isMobile
+    ? 'El asistente todavía no está integrado en los resultados mobile de este prototipo. Puedes usarlo desde el inicio.'
+    : 'El asistente está disponible en el inicio y en la vista Lista. En Mapa y Dividida se integrará más adelante.';
+
+  const openAssistant = useCallback((o: { firstMessage?: string; prefill?: string } = {}) => {
+    if (!available) { showToast(unavailableMessage); return; }
+    assistant.openPanel(o);
+  }, [available, assistant, showToast, unavailableMessage]);
+
+  const openFromHome = useCallback((o: { firstMessage?: string; comuna?: string; entry: AssistantEntry }) => {
+    openAssistant({ firstMessage: o.firstMessage, prefill: o.comuna ? comunaPrefill(o.comuna) : undefined });
+  }, [openAssistant]);
+
+  /** "Ver N resultados": única forma en que una propuesta del asistente llega a la búsqueda aplicada. */
+  const applyFromAssistant = useCallback((c: SearchCriteria) => {
+    search.replace(c, 'asistente');
+    search.setDraft(c);
+    recordRecent(c);
+    if (screen !== 'results' || viewMode !== 'lista') navigate('results', { viewMode: 'lista' });
+    showToast('Abriste la búsqueda del asistente en la lista.', {
+      label: 'Volver a la anterior',
+      onClick: () => {
+        search.restorePrevious();
+        assistant.addNote('Volviste a tu búsqueda anterior.');
       },
     });
-  }, [search, criteria.operation, criteria.propertyType]);
+  }, [search, recordRecent, screen, viewMode, navigate, showToast, assistant]);
 
-  const closeAssistant = useCallback(() => {
-    setHandoff(null);
-    search.discardDraft();
-  }, [search]);
+  const clearApplied = useCallback(() => {
+    replaceAllCriteria({ ...DEFAULT_CRITERIA, operation: criteria.operation, propertyType: criteria.propertyType });
+  }, [criteria.operation, criteria.propertyType, replaceAllCriteria]);
+
+  const viewProperty = useCallback((id: string) => {
+    setSelectedPropertyId(id);
+    navigate('property-full', { propertyTitle: mockProperties.find(p => p.id === id)?.title });
+  }, [navigate]);
+
+  // ── Datos derivados ──
 
   const filteredProperties = useMemo(
     () => sortProps(filterProperties(mockProperties, criteria), sort),
     [criteria, sort],
   );
-
   const selectedProperty = selectedPropertyId ? mockProperties.find(p => p.id === selectedPropertyId) ?? null : null;
 
-  if (screen === 'home') return (
-    <>
+  const toggleSaved = (id: string) => {
+    setSavedProperties(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); showSnack('Propiedad eliminada de guardados.'); }
+      else { next.add(id); showSnack('Propiedad guardada.'); }
+      return next;
+    });
+  };
+
+  const assistantStatus = { available, open: assistant.open, active: assistant.hasConversation, onOpen: () => openAssistant() };
+
+  let content;
+  if (screen === 'home') {
+    content = (
       <HomeScreen
         criteria={criteria}
         resultCount={filteredProperties.length}
         recents={recents}
-        onUpdate={patch => updateCriteria(patch, 'usuario')}
+        onUpdate={editCriteria}
         onSearch={runSearch}
         onRunRecent={runFullSearch}
         onRunSearch={runFullSearch}
-        onClear={() => resetCriteria({ operation: criteria.operation, propertyType: criteria.propertyType })}
-        onOpenAssistant={openAssistant}
+        onClear={clearApplied}
+        onOpenAssistant={openFromHome}
+        onOpenHeaderAssistant={() => openAssistant()}
       />
-      {handoff && <AssistantHandoffPanel handoff={handoff} onClose={closeAssistant} />}
-      <Snackbar message={snackbar.message} visible={snackbar.visible} onHide={() => setSnackbar(s => ({ ...s, visible: false }))} />
-    </>
-  );
-
-  if (screen === 'property-full' && selectedProperty) return (
-    <>
+    );
+  } else if (screen === 'property-full' && selectedProperty) {
+    content = (
       <PropertyFullScreen
         property={selectedProperty}
         savedProperties={savedProperties}
-        onBack={() => setScreen('results')}
+        onBack={() => navigate('results')}
         onContact={() => showSnack('Mensaje enviado. El anunciante te contactará pronto.')}
-        onSave={id => {
-          setSavedProperties(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) { next.delete(id); showSnack('Propiedad eliminada de guardados.'); }
-            else { next.add(id); showSnack('Propiedad guardada.'); }
-            return next;
-          });
-        }}
+        onSave={toggleSaved}
         onSelectSimilar={id => { setSelectedPropertyId(id); }}
       />
-      <Snackbar message={snackbar.message} visible={snackbar.visible} onHide={() => setSnackbar(s => ({ ...s, visible: false }))} />
-    </>
-  );
-
-  return (
-    <>
+    );
+  } else {
+    content = (
       <ResultsScreen
         properties={filteredProperties}
         viewMode={viewMode}
-        onViewChange={setViewMode}
+        onViewChange={changeViewMode}
         filters={criteria}
-        onFiltersChange={search.updateFilters}
-        interpretation={interpretation}
-        query={query}
+        onFiltersChange={editCriteria}
         savedSearch={savedSearch}
         onSaveSearch={() => {
           setSavedSearch(s => {
@@ -222,25 +251,41 @@ export default function App() {
           });
         }}
         savedProperties={savedProperties}
-        onSaveProperty={id => {
-          setSavedProperties(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) { next.delete(id); showSnack('Propiedad eliminada de guardados.'); }
-            else { next.add(id); showSnack('Propiedad guardada.'); }
-            return next;
-          });
-        }}
+        onSaveProperty={toggleSaved}
         advancedFilters={criteria}
-        onAdvancedFiltersChange={search.updateAdvanced}
+        onAdvancedFiltersChange={editCriteria}
         // Volver al inicio conserva la búsqueda (una sola búsqueda en todo el sitio) y la registra como reciente.
-        onGoHome={() => { recordRecent(criteria); setScreen('home'); setViewMode('lista'); }}
-        initialSearchMode={interpretation ? 'ia' : 'clasico'}
-        onSearch={startSearch}
-        onViewFullProperty={id => { setSelectedPropertyId(id); setScreen('property-full'); }}
+        onGoHome={() => { recordRecent(criteria); navigate('home', { viewMode: 'lista' }); }}
+        onViewFullProperty={viewProperty}
         onContact={() => showSnack('Mensaje enviado. El anunciante te contactará pronto.')}
         sort={sort}
         onSortChange={setSort}
+        assistant={assistantStatus}
       />
+    );
+  }
+
+  return (
+    <>
+      {content}
+      {assistant.open && available && (
+        <AssistantPanel
+          assistant={assistant}
+          view={view}
+          applied={criteria}
+          draft={search.draft}
+          data={mockProperties}
+          onApply={applyFromAssistant}
+          // Quitar un chip desde el panel es una edición directa de la persona.
+          onRemoveFilter={key => editCriteria(removalPatch(criteria, key))}
+          onClearApplied={clearApplied}
+          onViewProperty={viewProperty}
+        />
+      )}
+      {!assistant.open && available && (
+        <AssistantPill ref={pillRef} active={assistant.hasConversation} bottom={screen === 'results' ? 88 : 20} onOpen={() => openAssistant()} />
+      )}
+      <ActionToast toast={toast} onDone={hideToast} />
       <Snackbar message={snackbar.message} visible={snackbar.visible} onHide={() => setSnackbar(s => ({ ...s, visible: false }))} />
     </>
   );

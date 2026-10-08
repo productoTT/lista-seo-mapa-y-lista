@@ -32,6 +32,8 @@ export type SearchAction =
   /** Inicia el borrador: desde la búsqueda aplicada o solo con operación y tipo (entrada desde el Home). */
   | { type: 'draft/start'; from: 'applied' | 'operationAndType' }
   | { type: 'draft/update'; patch: Partial<SearchCriteria> }
+  /** Reemplaza el borrador completo (propuesta del asistente). */
+  | { type: 'draft/set'; criteria: SearchCriteria }
   | { type: 'draft/discard' }
   /** Aplica el borrador: equivale a `replace` con origen "asistente". */
   | { type: 'draft/apply' };
@@ -92,6 +94,8 @@ export function searchReducer(state: SearchState, action: SearchAction): SearchS
     case 'draft/update':
       if (!state.draft) return state;
       return { ...state, draft: { ...state.draft, ...action.patch } };
+    case 'draft/set':
+      return { ...state, draft: cloneCriteria(action.criteria) };
     case 'draft/discard':
       return { ...state, draft: null };
     case 'draft/apply': {
